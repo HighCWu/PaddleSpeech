@@ -179,6 +179,7 @@
 </div>
 
 ### 近期更新
+- 👑 2022.10.11: 新增 [Wav2vec2ASR](./examples/librispeech/asr3), 在 LibriSpeech 上针对ASR任务对wav2vec2.0 的fine-tuning.
 - 🔥 2022.09.26: 新增 Voice Cloning, TTS finetune 和 ERNIE-SAT 到 [PaddleSpeech 网页应用](./demos/speech_web)。
 - ⚡ 2022.09.09: 新增基于 ECAPA-TDNN 声纹模型的 AISHELL-3 Voice Cloning [示例](./examples/aishell3/vc2)。
 - ⚡ 2022.08.25: 发布 TTS [finetune](./examples/other/tts_finetune/tts3) 示例。
@@ -222,9 +223,15 @@
 PaddleSpeech 依赖于 paddlepaddle，安装可以参考[ paddlepaddle 官网](https://www.paddlepaddle.org.cn/)，根据自己机器的情况进行选择。这里给出 cpu 版本示例，其它版本大家可以根据自己机器的情况进行安装。
 
 ```shell
-pip install paddlepaddle==2.4.0rc0 -i https://mirror.baidu.com/pypi/simple
+pip install paddlepaddle -i https://mirror.baidu.com/pypi/simple
 ```
-
+你也可以安装指定版本的paddlepaddle，或者安装 develop 版本。
+```bash
+# 安装2.3.1版本. 注意：2.3.1只是一个示例，请按照对paddlepaddle的最小依赖进行选择。
+pip install paddlepaddle==2.3.1 -i https://mirror.baidu.com/pypi/simple
+# 安装 develop 版本
+pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
+```
 PaddleSpeech 快速安装方式有两种，一种是 pip 安装，一种是源码编译（推荐）。
 
 ### pip 安装
