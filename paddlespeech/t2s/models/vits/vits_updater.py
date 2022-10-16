@@ -127,10 +127,16 @@ class VITSUpdater(StandardUpdater):
                     self.model.generator.upsample_factor, )
 
                 # calculate discriminator outputs
-                p_hat = self.model.discriminator(speech_hat_)
+                p_hat = self.model.discriminator(
+                    speech_hat_,
+                    sids=batch.get("spk_id", None),
+                    spembs=batch.get("spk_emb", None))
                 with paddle.no_grad():
                     # do not store discriminator gradient in generator turn
-                    p = self.model.discriminator(speech_)
+                    p = self.model.discriminator(
+                        speech_,
+                        sids=batch.get("spk_id", None),
+                        spembs=batch.get("spk_emb", None))
 
                 # calculate losses
                 mel_loss = self.criterion_mel(speech_hat_, speech_)
@@ -184,8 +190,14 @@ class VITSUpdater(StandardUpdater):
                     self.model.generator.upsample_factor, )
 
                 # calculate discriminator outputs
-                p_hat = self.model.discriminator(speech_hat_.detach())
-                p = self.model.discriminator(speech_)
+                p_hat = self.model.discriminator(
+                    speech_hat_.detach(),
+                    sids=batch.get("spk_id", None),
+                    spembs=batch.get("spk_emb", None))
+                p = self.model.discriminator(
+                    speech_,
+                    sids=batch.get("spk_id", None),
+                    spembs=batch.get("spk_emb", None))
 
                 # calculate losses
                 real_loss, fake_loss = self.criterion_dis_adv(p_hat, p)
@@ -286,10 +298,16 @@ class VITSEvaluator(StandardEvaluator):
                     self.model.generator.upsample_factor, )
 
                 # calculate discriminator outputs
-                p_hat = self.model.discriminator(speech_hat_)
+                p_hat = self.model.discriminator(
+                    speech_hat_,
+                    sids=batch.get("spk_id", None),
+                    spembs=batch.get("spk_emb", None))
                 with paddle.no_grad():
                     # do not store discriminator gradient in generator turn
-                    p = self.model.discriminator(speech_)
+                    p = self.model.discriminator(
+                        speech_,
+                        sids=batch.get("spk_id", None),
+                        spembs=batch.get("spk_emb", None))
 
                 # calculate losses
                 mel_loss = self.criterion_mel(speech_hat_, speech_)
@@ -336,8 +354,14 @@ class VITSEvaluator(StandardEvaluator):
                     self.model.generator.upsample_factor, )
 
                 # calculate discriminator outputs
-                p_hat = self.model.discriminator(speech_hat_.detach())
-                p = self.model.discriminator(speech_)
+                p_hat = self.model.discriminator(
+                    speech_hat_.detach(),
+                    sids=batch.get("spk_id", None),
+                    spembs=batch.get("spk_emb", None))
+                p = self.model.discriminator(
+                    speech_,
+                    sids=batch.get("spk_id", None),
+                    spembs=batch.get("spk_emb", None))
 
                 # calculate losses
                 real_loss, fake_loss = self.criterion_dis_adv(p_hat, p)
