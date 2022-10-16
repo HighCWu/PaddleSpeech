@@ -433,6 +433,9 @@ class HiFiGANMultiPeriodDiscriminator(nn.Layer):
                 "in_channels": 1,
                 "out_channels": 1,
                 "kernel_sizes": [5, 3],
+                "spks": None,
+                "langs": None,
+                "spk_embed_dim": None,
                 "channels": 32,
                 "downsample_scales": [3, 3, 3, 3, 1],
                 "max_downsample_channels": 1024,
@@ -499,6 +502,9 @@ class HiFiGANScaleDiscriminator(nn.Layer):
             in_channels: int=1,
             out_channels: int=1,
             kernel_sizes: List[int]=[15, 41, 5, 3],
+            spks: Optional[int]=None,
+            langs: Optional[int]=None,
+            spk_embed_dim: Optional[int]=None,
             channels: int=128,
             max_downsample_channels: int=1024,
             max_groups: int=16,
@@ -519,6 +525,15 @@ class HiFiGANScaleDiscriminator(nn.Layer):
             kernel_sizes (list): 
                 List of four kernel sizes. The first will be used for the first conv layer,
                 and the second is for downsampling part, and the remaining two are for output layers.
+            spks (Optional[int]):
+                Number of speakers. If set to > 1, assume that the
+                sids will be provided as the input and use sid embedding layer.
+            langs (Optional[int]):
+                Number of languages. If set to > 1, assume that the
+                lids will be provided as the input and use sid embedding layer.
+            spk_embed_dim (Optional[int]):
+                Speaker embedding dimension. If set to > 0,
+                assume that spembs will be provided as the input.
             channels (int): 
                 Initial number of channels for conv layer.
             max_downsample_channels (int): 
@@ -541,6 +556,7 @@ class HiFiGANScaleDiscriminator(nn.Layer):
         # initialize parameters
         initialize(self, init_type)
 
+        out_chs_list = []
         self.layers = nn.LayerList()
 
         # check kernel size is valid
@@ -560,7 +576,7 @@ class HiFiGANScaleDiscriminator(nn.Layer):
                     padding=(kernel_sizes[0] - 1) // 2, ),
                 get_activation(nonlinear_activation, **
                                nonlinear_activation_params), ))
-
+        out_chs_list.append(channels)
         # add downsample layers
         in_chs = channels
         out_chs = channels
@@ -579,6 +595,7 @@ class HiFiGANScaleDiscriminator(nn.Layer):
                         bias_attr=bias, ),
                     get_activation(nonlinear_activation, **
                                    nonlinear_activation_params), ))
+            out_chs_list.append(out_chs)
             in_chs = out_chs
             # NOTE: Remove hard coding?
             out_chs = min(in_chs * 2, max_downsample_channels)
@@ -598,6 +615,7 @@ class HiFiGANScaleDiscriminator(nn.Layer):
                     bias_attr=bias, ),
                 get_activation(nonlinear_activation, **
                                nonlinear_activation_params), ))
+        out_chs_list.append(out_chs)
         self.layers.append(
             nn.Conv1D(
                 out_chs,
@@ -606,6 +624,7 @@ class HiFiGANScaleDiscriminator(nn.Layer):
                 stride=1,
                 padding=(kernel_sizes[3] - 1) // 2,
                 bias_attr=bias, ), )
+        out_chs_list.append(out_channels)
 
         if use_weight_norm and use_spectral_norm:
             raise ValueError("Either use use_weight_norm or use_spectral_norm.")
@@ -618,17 +637,66 @@ class HiFiGANScaleDiscriminator(nn.Layer):
         if use_spectral_norm:
             self.apply_spectral_norm()
 
-    def forward(self, x):
+        # apply speaker embedding
+        self.spks = None
+        if spks is not None and spks > 1:
+            self.spks = spks
+            self.global_embs = nn.LayerList()
+        self.spk_embed_dim = None
+        if spk_embed_dim is not None and spk_embed_dim > 0:
+            self.spk_embed_dim = spk_embed_dim
+            self.spemb_projs = nn.LayerList()
+        self.langs = None
+        if langs is not None and langs > 1:
+            self.langs = langs
+            self.lang_embs = nn.LayerList()
+        for out_chs in out_chs_list:
+            if spks is not None and spks > 1:
+                assert out_chs > 0
+                self.global_embs.append(nn.Embedding(spks, out_chs))
+            if spk_embed_dim is not None and spk_embed_dim > 0:
+                assert out_chs > 0
+                self.spemb_projs.append(nn.Linear(spk_embed_dim, out_chs))
+            self.langs = None
+            if langs is not None and langs > 1:
+                assert out_chs > 0
+                self.lang_embs.append(nn.Embedding(langs, out_chs))
+
+    def forward(
+            self,
+            x,
+            sids: Optional[paddle.Tensor]=None,
+            spembs: Optional[paddle.Tensor]=None,
+            lids: Optional[paddle.Tensor]=None, ):
         """Calculate forward propagation.
 
         Args:
             x (Tensor): Input noise signal (B, 1, T).
+            sids (Optional[Tensor]):
+                Speaker index tensor (B,) or (B, 1).
+            spembs (Optional[Tensor]):
+                Speaker embedding tensor (B, spk_embed_dim).
+            lids (Optional[Tensor]):
+                Language index tensor (B,) or (B, 1).
         Returns:
             List: List of output tensors of each layer.
         """
+
         outs = []
-        for f in self.layers:
+        for i, f in enumerate(self.layers):
             x = f(x)
+
+            # calculate speaker conditioning
+            if self.spks is not None:
+                # speaker one-hot vector embedding: (B, out_chs, 1)
+                x += self.global_embs[i](paddle.reshape(sids, [-1]))[..., None]
+            if self.spk_embed_dim is not None:
+                # pretrained speaker embedding, e.g., X-vector (B, out_chs, 1)
+                x += self.spemb_projs[i](F.normalize(spembs))[..., None]
+            if self.langs is not None:
+                # language one-hot vector embedding: (B, out_chs, 1)
+                x += self.lang_embs[i](paddle.reshape(lids, [-1]))[..., None]
+
             outs += [x]
 
         return outs
@@ -671,6 +739,9 @@ class HiFiGANMultiScaleDiscriminator(nn.Layer):
                 "in_channels": 1,
                 "out_channels": 1,
                 "kernel_sizes": [15, 41, 5, 3],
+                "spks": None,
+                "langs": None,
+                "spk_embed_dim": None,
                 "channels": 128,
                 "max_downsample_channels": 1024,
                 "max_groups": 16,
@@ -714,18 +785,29 @@ class HiFiGANMultiScaleDiscriminator(nn.Layer):
         self.pooling = getattr(nn, downsample_pooling)(
             **downsample_pooling_params)
 
-    def forward(self, x):
+    def forward(
+            self,
+            x,
+            sids: Optional[paddle.Tensor]=None,
+            spembs: Optional[paddle.Tensor]=None,
+            lids: Optional[paddle.Tensor]=None, ):
         """Calculate forward propagation.
 
         Args:
             x (Tensor): 
                 Input noise signal (B, 1, T).
+            sids (Optional[Tensor]):
+                Speaker index tensor (B,) or (B, 1).
+            spembs (Optional[Tensor]):
+                Speaker embedding tensor (B, spk_embed_dim).
+            lids (Optional[Tensor]):
+                Language index tensor (B,) or (B, 1).
         Returns:
             List: List of list of each discriminator outputs, which consists of each layer output tensors.
         """
         outs = []
         for f in self.discriminators:
-            outs += [f(x)]
+            outs += [f(x, sids, spembs, lids)]
             x = self.pooling(x)
 
         return outs
@@ -748,6 +830,9 @@ class HiFiGANMultiScaleMultiPeriodDiscriminator(nn.Layer):
                 "in_channels": 1,
                 "out_channels": 1,
                 "kernel_sizes": [15, 41, 5, 3],
+                "spks": None,
+                "langs": None,
+                "spk_embed_dim": None,
                 "channels": 128,
                 "max_downsample_channels": 1024,
                 "max_groups": 16,
@@ -765,6 +850,9 @@ class HiFiGANMultiScaleMultiPeriodDiscriminator(nn.Layer):
                 "in_channels": 1,
                 "out_channels": 1,
                 "kernel_sizes": [5, 3],
+                "spks": None,
+                "langs": None,
+                "spk_embed_dim": None,
                 "channels": 32,
                 "downsample_scales": [3, 3, 3, 3, 1],
                 "max_downsample_channels": 1024,
@@ -776,7 +864,10 @@ class HiFiGANMultiScaleMultiPeriodDiscriminator(nn.Layer):
                 "use_weight_norm": True,
                 "use_spectral_norm": False,
             },
-            init_type: str="xavier_uniform", ):
+            init_type: str="xavier_uniform",
+            spks: Optional[int]=None,
+            langs: Optional[int]=None,
+            spk_embed_dim: Optional[int]=None, ):
         """Initilize HiFiGAN multi-scale + multi-period discriminator module.
 
         Args:
@@ -796,11 +887,30 @@ class HiFiGANMultiScaleMultiPeriodDiscriminator(nn.Layer):
             period_discriminator_params (dict): 
                 Parameters for hifi-gan period discriminator module.
                 The period parameter will be overwritten.
+            spks (Optional[int]):
+                Number of speakers. If set to > 1, assume that the
+                sids will be provided as the input and use sid embedding layer.
+            langs (Optional[int]):
+                Number of languages. If set to > 1, assume that the
+                lids will be provided as the input and use sid embedding layer.
+            spk_embed_dim (Optional[int]):
+                Speaker embedding dimension. If set to > 0,
+                assume that spembs will be provided as the input.
         """
         super().__init__()
 
         # initialize parameters
         initialize(self, init_type)
+
+        if spks is not None:
+            scale_discriminator_params["spks"] = spks
+            period_discriminator_params["spks"] = spks
+        if langs is not None:
+            scale_discriminator_params["langs"] = langs
+            period_discriminator_params["langs"] = langs
+        if spk_embed_dim is not None:
+            scale_discriminator_params["spk_embed_dim"] = spk_embed_dim
+            period_discriminator_params["spk_embed_dim"] = spk_embed_dim
 
         self.msd = HiFiGANMultiScaleDiscriminator(
             scales=scales,
@@ -812,20 +922,31 @@ class HiFiGANMultiScaleMultiPeriodDiscriminator(nn.Layer):
             periods=periods,
             discriminator_params=period_discriminator_params, )
 
-    def forward(self, x):
+    def forward(
+            self,
+            x,
+            sids: Optional[paddle.Tensor]=None,
+            spembs: Optional[paddle.Tensor]=None,
+            lids: Optional[paddle.Tensor]=None, ):
         """Calculate forward propagation.
 
         Args:
             x (Tensor): 
                 Input noise signal (B, 1, T).
+            sids (Optional[Tensor]):
+                Speaker index tensor (B,) or (B, 1).
+            spembs (Optional[Tensor]):
+                Speaker embedding tensor (B, spk_embed_dim).
+            lids (Optional[Tensor]):
+                Language index tensor (B,) or (B, 1).
         Returns:
             List:
                 List of list of each discriminator outputs,
                 which consists of each layer output tensors.
                 Multi scale and multi period ones are concatenated.
         """
-        msd_outs = self.msd(x)
-        mpd_outs = self.mpd(x)
+        msd_outs = self.msd(x, sids, spembs, lids)
+        mpd_outs = self.mpd(x, sids, spembs, lids)
         return msd_outs + mpd_outs
 
 

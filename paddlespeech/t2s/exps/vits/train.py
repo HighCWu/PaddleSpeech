@@ -139,8 +139,7 @@ def train_sp(args, config):
 
     odim = config.n_fft // 2 + 1
     config["model"]["generator_params"]["spks"] = spk_num
-    config["model"]["discriminator_params"]["period_discriminator_params"][
-        "spks"] = spk_num
+    config["model"]["discriminator_params"]["spks"] = spk_num
     model = VITS(idim=vocab_size, odim=odim, **config["model"])
     gen_parameters = model.generator.parameters()
     dis_parameters = model.discriminator.parameters()
