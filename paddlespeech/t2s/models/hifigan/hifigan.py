@@ -236,6 +236,9 @@ class HiFiGANPeriodDiscriminator(nn.Layer):
             out_channels: int=1,
             period: int=3,
             kernel_sizes: List[int]=[5, 3],
+            spks: Optional[int]=None,
+            langs: Optional[int]=None,
+            spk_embed_dim: Optional[int]=None,
             channels: int=32,
             downsample_scales: List[int]=[3, 3, 3, 3, 1],
             max_downsample_channels: int=1024,
@@ -256,6 +259,15 @@ class HiFiGANPeriodDiscriminator(nn.Layer):
                 Period.
             kernel_sizes (list): 
                 Kernel sizes of initial conv layers and the final conv layer.
+            spks (Optional[int]):
+                Number of speakers. If set to > 1, assume that the
+                sids will be provided as the input and use sid embedding layer.
+            langs (Optional[int]):
+                Number of languages. If set to > 1, assume that the
+                lids will be provided as the input and use sid embedding layer.
+            spk_embed_dim (Optional[int]):
+                Speaker embedding dimension. If set to > 0,
+                assume that spembs will be provided as the input.
             channels (int): 
                 Number of initial channels.
             downsample_scales (list): 
@@ -322,12 +334,40 @@ class HiFiGANPeriodDiscriminator(nn.Layer):
         if use_spectral_norm:
             self.apply_spectral_norm()
 
-    def forward(self, x):
+        # apply speaker embedding
+        self.spks = None
+        if spks is not None and spks > 1:
+            assert out_chs > 0
+            self.spks = spks
+            self.global_emb = nn.Embedding(spks, out_chs)
+        self.spk_embed_dim = None
+        if spk_embed_dim is not None and spk_embed_dim > 0:
+            assert out_chs > 0
+            self.spk_embed_dim = spk_embed_dim
+            self.spemb_proj = nn.Linear(spk_embed_dim, out_chs)
+        self.langs = None
+        if langs is not None and langs > 1:
+            assert out_chs > 0
+            self.langs = langs
+            self.lang_emb = nn.Embedding(langs, out_chs)
+
+    def forward(
+            self,
+            x,
+            sids: Optional[paddle.Tensor]=None,
+            spembs: Optional[paddle.Tensor]=None,
+            lids: Optional[paddle.Tensor]=None, ):
         """Calculate forward propagation.
 
         Args:
-            c (Tensor): 
+            x (Tensor): 
                 Input tensor (B, in_channels, T).
+            sids (Optional[Tensor]):
+                Speaker index tensor (B,) or (B, 1).
+            spembs (Optional[Tensor]):
+                Speaker embedding tensor (B, spk_embed_dim).
+            lids (Optional[Tensor]):
+                Language index tensor (B,) or (B, 1).
         Returns:
             list: List of each layer's tensors.
         """
@@ -344,6 +384,18 @@ class HiFiGANPeriodDiscriminator(nn.Layer):
         for layer in self.convs:
             x = layer(x)
             outs += [x]
+
+        # calculate speaker conditioning
+        if self.spks is not None:
+            # speaker one-hot vector embedding: (B, out_chs, 1, 1)
+            x += self.global_emb(paddle.reshape(sids, [-1]))[..., None, None]
+        if self.spk_embed_dim is not None:
+            # pretrained speaker embedding, e.g., X-vector (B, out_chs, 1, 1)
+            x += self.spemb_proj(F.normalize(spembs))[..., None, None]
+        if self.langs is not None:
+            # language one-hot vector embedding: (B, out_chs, 1, 1)
+            x += self.lang_emb(paddle.reshape(lids, [-1]))[..., None, None]
+
         x = self.output_conv(x)
         x = paddle.flatten(x, 1, -1)
         outs += [x]
@@ -412,18 +464,29 @@ class HiFiGANMultiPeriodDiscriminator(nn.Layer):
             params["period"] = period
             self.discriminators.append(HiFiGANPeriodDiscriminator(**params))
 
-    def forward(self, x):
+    def forward(
+            self,
+            x,
+            sids: Optional[paddle.Tensor]=None,
+            spembs: Optional[paddle.Tensor]=None,
+            lids: Optional[paddle.Tensor]=None, ):
         """Calculate forward propagation.
 
         Args:
             x (Tensor): 
                 Input noise signal (B, 1, T).
+            sids (Optional[Tensor]):
+                Speaker index tensor (B,) or (B, 1).
+            spembs (Optional[Tensor]):
+                Speaker embedding tensor (B, spk_embed_dim).
+            lids (Optional[Tensor]):
+                Language index tensor (B,) or (B, 1).
         Returns:
             List: List of list of each discriminator outputs, which consists of each layer output tensors.
         """
         outs = []
         for f in self.discriminators:
-            outs += [f(x)]
+            outs += [f(x, sids, spembs, lids)]
 
         return outs
 
