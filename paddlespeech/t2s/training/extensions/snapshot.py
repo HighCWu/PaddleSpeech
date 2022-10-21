@@ -56,6 +56,7 @@ class Snapshot(extension.Extension):
         self.max_size = max_size
         self._snapshot_on_error = snapshot_on_error
         self._save_all = (max_size == -1)
+        self._save_last = (max_size == 0)
         self.checkpoint_dir = None
 
     def initialize(self, trainer: Trainer):
@@ -85,7 +86,8 @@ class Snapshot(extension.Extension):
     def save_checkpoint_and_update(self, trainer: Trainer):
         """Saving new snapshot and remove the oldest snapshot if needed."""
         iteration = trainer.updater.state.iteration
-        path = self.checkpoint_dir / f"snapshot_iter_{iteration}.pdz"
+        iter_id = 'last' if self._save_last else iteration
+        path = self.checkpoint_dir / f"snapshot_iter_{iter_id}.pdz"
 
         # add the new one
         trainer.updater.save(path)
@@ -97,9 +99,10 @@ class Snapshot(extension.Extension):
         self.records.append(record)
 
         # remove the earist
-        if self.full():
+        if self.full() and len(self.records) > 1:
             eariest_record = self.records[0]
-            os.remove(eariest_record["path"])
+            if not self._save_last:
+                os.remove(eariest_record["path"])
             self.records.pop(0)
 
         # update the record file
