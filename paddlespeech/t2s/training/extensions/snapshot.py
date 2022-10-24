@@ -97,6 +97,12 @@ class Snapshot(extension.Extension):
             'iteration': iteration
         }
         self.records.append(record)
+        
+        # extra backup
+        if self._save_last:
+            for i in range(5):
+                path_i = self.checkpoint_dir / f"snapshot_iter_{iter_id}_{i+1}.pdz"
+                trainer.updater.save(path_i)
 
         # remove the earist
         if self.full() and len(self.records) > 1:
