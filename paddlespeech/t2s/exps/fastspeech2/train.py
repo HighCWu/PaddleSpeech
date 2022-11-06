@@ -150,12 +150,22 @@ def train_sp(args, config):
     else:
         enable_spk_cls = False
 
+    enable_duration_predictor = True
+    if "enable_duration_predictor" in config.model:
+        enable_duration_predictor = config.model.enable_duration_predictor
+
+    enable_pitch_predictor = True
+    if "enable_pitch_predictor" in config.model:
+        enable_pitch_predictor = config.model.enable_pitch_predictor
+
     updater = FastSpeech2Updater(
         model=model,
         optimizer=optimizer,
         dataloader=train_dataloader,
         output_dir=output_dir,
         enable_spk_cls=enable_spk_cls,
+        enable_duration_predictor=enable_duration_predictor,
+        enable_pitch_predictor=enable_pitch_predictor,
         **config["updater"], )
 
     trainer = Trainer(updater, (config.max_epoch, 'epoch'), output_dir)
@@ -165,6 +175,8 @@ def train_sp(args, config):
         dev_dataloader,
         output_dir=output_dir,
         enable_spk_cls=enable_spk_cls,
+        enable_duration_predictor=enable_duration_predictor,
+        enable_pitch_predictor=enable_pitch_predictor,
         **config["updater"], )
 
     if dist.get_rank() == 0:

@@ -66,6 +66,10 @@ def process_sentence(config: Dict[str, Any],
         phones = sentences[utt_id][0]
         durations = sentences[utt_id][1]
         speaker = sentences[utt_id][2]
+        notes = [
+            phone.split('<note:')[1].split('>')[0] for phone in phones
+            if '<note:' in phone
+        ]
         d_cumsum = np.pad(np.array(durations).cumsum(0), (1, 0), 'constant')
         # little imprecise than use *.TextGrid directly
         times = librosa.frames_to_time(
@@ -101,7 +105,10 @@ def process_sentence(config: Dict[str, Any],
         mel_path = mel_dir / (utt_id + "_speech.npy")
         np.save(mel_path, logmel)
         # extract pitch and energy
-        f0 = pitch_extractor.get_pitch(wav, duration=np.array(durations))
+        if len(notes) == 0:
+            f0 = pitch_extractor.get_pitch(wav, duration=np.array(durations))
+        else:
+            f0 = pitch_extractor.get_pitch_by_note(notes)
         assert f0.shape[0] == len(durations)
         f0_dir = output_dir / "data_pitch"
         f0_dir.mkdir(parents=True, exist_ok=True)
@@ -196,7 +203,8 @@ def main():
         "--dataset",
         default="baker",
         type=str,
-        help="name of dataset, should in {baker, aishell3, ljspeech, vctk} now")
+        help="name of dataset, should in {baker, aishell3, ljspeech, vctk, opencpop} now"
+    )
 
     parser.add_argument(
         "--rootdir", default=None, type=str, help="directory to dataset.")
@@ -305,9 +313,17 @@ def main():
                 test_wav_files += wav_files[-sub_num_dev:]
             else:
                 train_wav_files += wav_files
-
+    elif args.dataset == "opencpop":
+        wav_files = sorted(list((rootdir / "wavs").rglob("*.wav")))
+        # split data into 3 sections
+        num_train = 3500
+        num_dev = 100
+        train_wav_files = wav_files[:num_train]
+        dev_wav_files = wav_files[num_train:num_train + num_dev]
+        test_wav_files = wav_files[num_train + num_dev:]
     else:
-        print("dataset should in {baker, aishell3, ljspeech, vctk} now!")
+        print(
+            "dataset should in {baker, aishell3, ljspeech, vctk, opencpop} now!")
 
     train_dump_dir = dumpdir / "train" / "raw"
     train_dump_dir.mkdir(parents=True, exist_ok=True)

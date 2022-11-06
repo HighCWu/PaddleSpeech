@@ -43,7 +43,9 @@ class FastSpeech2Updater(StandardUpdater):
             spk_loss_scale: float=0.02,
             use_weighted_masking: bool=False,
             output_dir: Path=None,
-            enable_spk_cls: bool=False, ):
+            enable_spk_cls: bool=False,
+            enable_duration_predictor=True,
+            enable_pitch_predictor=True, ):
         super().__init__(model, optimizer, dataloader, init_state=None)
 
         self.criterion = FastSpeech2Loss(
@@ -57,6 +59,8 @@ class FastSpeech2Updater(StandardUpdater):
         self.msg = ""
         self.spk_loss_scale = spk_loss_scale
         self.enable_spk_cls = enable_spk_cls
+        self.enable_duration_predictor = enable_duration_predictor
+        self.enable_pitch_predictor = enable_pitch_predictor
 
     def update_core(self, batch):
         self.msg = "Rank: {}, ".format(dist.get_rank())
@@ -119,8 +123,10 @@ class FastSpeech2Updater(StandardUpdater):
 
         report("train/loss", float(loss))
         report("train/l1_loss", float(l1_loss))
-        report("train/duration_loss", float(duration_loss))
-        report("train/pitch_loss", float(pitch_loss))
+        if self.enable_duration_predictor:
+            report("train/duration_loss", float(duration_loss))
+        if self.enable_pitch_predictor:
+            report("train/pitch_loss", float(pitch_loss))
         report("train/energy_loss", float(energy_loss))
         if self.enable_spk_cls:
             report("train/speaker_loss", float(speaker_loss))

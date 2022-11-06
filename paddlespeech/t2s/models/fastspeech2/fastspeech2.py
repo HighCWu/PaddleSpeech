@@ -113,6 +113,7 @@ class FastSpeech2(nn.Layer):
             duration_predictor_chans: int=384,
             duration_predictor_kernel_size: int=3,
             duration_predictor_dropout_rate: float=0.1,
+            enable_duration_predictor: bool=True,
             # energy predictor
             energy_predictor_layers: int=2,
             energy_predictor_chans: int=384,
@@ -129,6 +130,7 @@ class FastSpeech2(nn.Layer):
             pitch_embed_kernel_size: int=9,
             pitch_embed_dropout: float=0.5,
             stop_gradient_from_pitch_predictor: bool=False,
+            enable_pitch_predictor: bool=True,
             # spk emb
             spk_num: int=None,
             spk_embed_dim: int=None,
@@ -224,6 +226,8 @@ class FastSpeech2(nn.Layer):
                 Kernel size of duration predictor.
             duration_predictor_dropout_rate (float): 
                 Dropout rate in duration predictor.
+            enable_duration_predictor (bool):
+                Whether to use duration predictor module.
             pitch_predictor_layers (int): 
                 Number of pitch predictor layers.
             pitch_predictor_chans (int):
@@ -236,6 +240,8 @@ class FastSpeech2(nn.Layer):
                 Kernel size of pitch embedding.
             pitch_embed_dropout_rate (float): 
                 Dropout rate for pitch embedding.
+            enable_pitch_predictor (bool):
+                Whether to use pitch predictor module.
             stop_gradient_from_pitch_predictor (bool): 
                 Whether to stop gradient from pitch predictor to encoder.
             energy_predictor_layers (int): 
@@ -392,20 +398,24 @@ class FastSpeech2(nn.Layer):
                 idim=adim, hidden_sc_dim=self.hidden_sc_dim, spk_num=spk_num)
 
         # define duration predictor
-        self.duration_predictor = DurationPredictor(
-            idim=adim,
-            n_layers=duration_predictor_layers,
-            n_chans=duration_predictor_chans,
-            kernel_size=duration_predictor_kernel_size,
-            dropout_rate=duration_predictor_dropout_rate, )
+        self.duration_predictor = None
+        if enable_duration_predictor:
+            self.duration_predictor = DurationPredictor(
+                idim=adim,
+                n_layers=duration_predictor_layers,
+                n_chans=duration_predictor_chans,
+                kernel_size=duration_predictor_kernel_size,
+                dropout_rate=duration_predictor_dropout_rate, )
 
         # define pitch predictor
-        self.pitch_predictor = VariancePredictor(
-            idim=adim,
-            n_layers=pitch_predictor_layers,
-            n_chans=pitch_predictor_chans,
-            kernel_size=pitch_predictor_kernel_size,
-            dropout_rate=pitch_predictor_dropout, )
+        self.pitch_predictor = None
+        if enable_pitch_predictor:
+            self.pitch_predictor = VariancePredictor(
+                idim=adim,
+                n_layers=pitch_predictor_layers,
+                n_chans=pitch_predictor_chans,
+                kernel_size=pitch_predictor_kernel_size,
+                dropout_rate=pitch_predictor_dropout, )
         #  We use continuous pitch + FastPitch style avg
         self.pitch_embed = nn.Sequential(
             nn.Conv1D(
@@ -623,12 +633,16 @@ class FastSpeech2(nn.Layer):
                 tone_embs = self.tone_embedding_table(tone_id)
                 hs = self._integrate_with_tone_embed(hs, tone_embs)
         # forward duration predictor and variance predictors
+        d_outs = ds
         d_masks = make_pad_mask(ilens)
+        p_outs = ps
 
-        if self.stop_gradient_from_pitch_predictor:
-            p_outs = self.pitch_predictor(hs.detach(), d_masks.unsqueeze(-1))
-        else:
-            p_outs = self.pitch_predictor(hs, d_masks.unsqueeze(-1))
+        if self.pitch_predictor is not None:
+            if self.stop_gradient_from_pitch_predictor:
+                p_outs = self.pitch_predictor(hs.detach(),
+                                              d_masks.unsqueeze(-1))
+            else:
+                p_outs = self.pitch_predictor(hs, d_masks.unsqueeze(-1))
         if self.stop_gradient_from_energy_predictor:
             e_outs = self.energy_predictor(hs.detach(), d_masks.unsqueeze(-1))
         else:
@@ -657,7 +671,8 @@ class FastSpeech2(nn.Layer):
             # (B, Lmax, adim)
             hs = self.length_regulator(hs, d_outs, alpha, is_inference=True)
         else:
-            d_outs = self.duration_predictor(hs, d_masks)
+            if self.duration_predictor is not None:
+                d_outs = self.duration_predictor(hs, d_masks)
             # use groundtruth in training
             p_embs = self.pitch_embed(ps.transpose((0, 2, 1))).transpose(
                 (0, 2, 1))

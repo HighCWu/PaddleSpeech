@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Modified from espnet(https://github.com/espnet/espnet)
+from typing import List
+
 import librosa
 import numpy as np
 import pyworld
@@ -167,6 +169,15 @@ class Pitch():
         if use_token_averaged_f0 and duration is not None:
             f0 = self._average_by_duration(f0, duration)
         return f0
+
+    def get_pitch_by_note(self, input: List[str], use_log_f0: bool=True):
+        notes = [note.split('/')[0].replace('rest', 'C-8') for note in input]
+        f0 = librosa.note_to_hz(notes)
+        f0 = f0 * (f0 > 0.1).astype(f0.dtype)
+        if use_log_f0:
+            nonzero_idxs = np.where(f0 != 0)[0]
+            f0[nonzero_idxs] = np.log(f0[nonzero_idxs])
+        return f0.reshape(-1)
 
 
 class Energy():

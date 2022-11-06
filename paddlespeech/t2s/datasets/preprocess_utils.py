@@ -82,7 +82,7 @@ def get_input_token(sentence, output_path, dataset="baker"):
     phn_token = set()
     for utt in sentence:
         for phn in sentence[utt][0]:
-            phn_token.add(phn)
+            phn_token.add(phn.split("<note:")[0])
     phn_token = list(phn_token)
     phn_token.sort()
     phn_token = ["<pad>", "<unk>"] + phn_token
