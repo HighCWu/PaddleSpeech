@@ -158,7 +158,8 @@ def main():
         "--dataset",
         default="baker",
         type=str,
-        help="name of dataset, should in {baker, aishell3, ljspeech, vctk} now")
+        help="name of dataset, should in {baker, aishell3, ljspeech, vctk, opencpop} now"
+    )
     parser.add_argument(
         "--rootdir", default=None, type=str, help="directory to dataset.")
     parser.add_argument(
@@ -240,8 +241,17 @@ def main():
                 test_wav_files += wav_files[-sub_num_dev:]
             else:
                 train_wav_files += wav_files
+    elif args.dataset == "opencpop":
+        wav_files = sorted(list((rootdir / "wavs").rglob("*.wav")))
+        # split data into 3 sections
+        num_train = 3500
+        num_dev = 100
+        train_wav_files = wav_files[:num_train]
+        dev_wav_files = wav_files[num_train:num_train + num_dev]
+        test_wav_files = wav_files[num_train + num_dev:]
     else:
-        print("dataset should in {baker, ljspeech, vctk, aishell3} now!")
+        print(
+            "dataset should in {baker, ljspeech, vctk, aishell3, opencpop} now!")
 
     train_dump_dir = dumpdir / "train" / "raw"
     train_dump_dir.mkdir(parents=True, exist_ok=True)
