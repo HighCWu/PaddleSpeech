@@ -70,6 +70,7 @@ def process_sentence(config: Dict[str, Any],
             phone.split('<note:')[1].split('>')[0] for phone in phones
             if '<note:' in phone
         ]
+        phones = [phone.split('<note:')[0] for phone in phones]
         d_cumsum = np.pad(np.array(durations).cumsum(0), (1, 0), 'constant')
         # little imprecise than use *.TextGrid directly
         times = librosa.frames_to_time(

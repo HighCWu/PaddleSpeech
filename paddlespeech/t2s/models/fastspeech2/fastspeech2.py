@@ -632,8 +632,12 @@ class FastSpeech2(nn.Layer):
             if tone_id is not None:
                 tone_embs = self.tone_embedding_table(tone_id)
                 hs = self._integrate_with_tone_embed(hs, tone_embs)
+
         # forward duration predictor and variance predictors
-        d_outs = ds
+
+        # TODO 1.0 if the offset param of duration predictor
+        d_outs = None if ds is None else paddle.log(
+            ds.cast(dtype='float32') + 1.0).detach()
         d_masks = make_pad_mask(ilens)
         p_outs = ps
 
@@ -650,9 +654,7 @@ class FastSpeech2(nn.Layer):
 
         if is_inference:
             # (B, Tmax)
-            if ds is not None:
-                d_outs = ds
-            else:
+            if ds is None:
                 d_outs = self.duration_predictor.inference(hs, d_masks)
             if ps is not None:
                 p_outs = ps

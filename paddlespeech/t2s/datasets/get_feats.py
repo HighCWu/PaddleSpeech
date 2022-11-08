@@ -177,7 +177,7 @@ class Pitch():
         if use_log_f0:
             nonzero_idxs = np.where(f0 != 0)[0]
             f0[nonzero_idxs] = np.log(f0[nonzero_idxs])
-        return f0.reshape(-1)
+        return f0.reshape(-1, 1)
 
 
 class Energy():
