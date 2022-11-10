@@ -636,8 +636,7 @@ class FastSpeech2(nn.Layer):
         # forward duration predictor and variance predictors
 
         # TODO 1.0 if the offset param of duration prediction loss
-        d_outs = None if ds is None else paddle.log(
-            ds.cast(dtype='float32') + 1.0).detach()
+        d_outs = ds
         d_masks = make_pad_mask(ilens)
         p_outs = ps
 
@@ -656,6 +655,8 @@ class FastSpeech2(nn.Layer):
             # (B, Tmax)
             if ds is None:
                 d_outs = self.duration_predictor.inference(hs, d_masks)
+            else:
+                d_outs = ds.cast(dtype='float32')
             if ps is not None:
                 p_outs = ps
             if es is not None:
@@ -673,7 +674,9 @@ class FastSpeech2(nn.Layer):
             # (B, Lmax, adim)
             hs = self.length_regulator(hs, d_outs, alpha, is_inference=True)
         else:
-            if self.duration_predictor is not None:
+            if self.duration_predictor is None:
+                d_outs = paddle.log(ds.cast(dtype='float32') + 1.0).detach()
+            else:
                 d_outs = self.duration_predictor(hs, d_masks)
             # use groundtruth in training
             p_embs = self.pitch_embed(ps.transpose((0, 2, 1))).transpose(
