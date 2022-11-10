@@ -65,7 +65,9 @@ def evaluate(args):
         test_metadata=test_metadata,
         am=args.am,
         speaker_dict=args.speaker_dict,
-        voice_cloning=args.voice_cloning)
+        voice_cloning=args.voice_cloning,
+        use_durations=args.use_durations,
+        use_pitch=args.use_pitch)
 
     # vocoder
     voc_inference = get_voc_inference(
@@ -89,13 +91,23 @@ def evaluate(args):
                     phone_ids = paddle.to_tensor(datum["text"])
                     spk_emb = None
                     spk_id = None
+                    durations = None
+                    pitch = None
+                    if args.use_durations:
+                        durations = paddle.to_tensor(datum["durations"])
+                    if args.use_pitch:
+                        pitch = paddle.to_tensor(datum["pitch"])
                     # multi speaker
                     if args.voice_cloning and "spk_emb" in datum:
                         spk_emb = paddle.to_tensor(np.load(datum["spk_emb"]))
                     elif "spk_id" in datum:
                         spk_id = paddle.to_tensor(datum["spk_id"])
                     mel = am_inference(
-                        phone_ids, spk_id=spk_id, spk_emb=spk_emb)
+                        phone_ids,
+                        spk_id=spk_id,
+                        spk_emb=spk_emb,
+                        durations=durations,
+                        pitch=pitch)
                 elif am_name == 'speedyspeech':
                     phone_ids = paddle.to_tensor(datum["phones"])
                     tone_ids = paddle.to_tensor(datum["tones"])
@@ -136,7 +148,8 @@ def parse_args():
         choices=[
             'speedyspeech_csmsc', 'fastspeech2_csmsc', 'fastspeech2_ljspeech',
             'fastspeech2_aishell3', 'fastspeech2_vctk', 'tacotron2_csmsc',
-            'tacotron2_ljspeech', 'tacotron2_aishell3', 'fastspeech2_mix'
+            'tacotron2_ljspeech', 'tacotron2_aishell3', 'fastspeech2_mix',
+            'fastspeech2_opencpop'
         ],
         help='Choose acoustic model type of tts task.')
     parser.add_argument(
@@ -172,7 +185,7 @@ def parse_args():
             'pwgan_csmsc', 'pwgan_ljspeech', 'pwgan_aishell3', 'pwgan_vctk',
             'mb_melgan_csmsc', 'wavernn_csmsc', 'hifigan_csmsc',
             'hifigan_ljspeech', 'hifigan_aishell3', 'hifigan_vctk',
-            'style_melgan_csmsc'
+            'style_melgan_csmsc', 'hifigan_opencpop'
         ],
         help='Choose vocoder type of tts task.')
     parser.add_argument(
@@ -190,6 +203,16 @@ def parse_args():
         "--ngpu", type=int, default=1, help="if ngpu == 0, use cpu.")
     parser.add_argument("--test_metadata", type=str, help="test metadata.")
     parser.add_argument("--output_dir", type=str, help="output dir.")
+    parser.add_argument(
+        "--use_durations",
+        type=str,
+        default=False,
+        help="whether use existed durations as an input of acoustic model.")
+    parser.add_argument(
+        "--use_pitch",
+        type=str,
+        default=False,
+        help="whether use existed pitch as an input of acoustic model.")
 
     args = parser.parse_args()
     return args

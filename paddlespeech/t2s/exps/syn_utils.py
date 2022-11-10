@@ -121,13 +121,20 @@ def get_sentences(text_file: Optional[os.PathLike], lang: str='zh'):
 def get_test_dataset(test_metadata: List[Dict[str, Any]],
                      am: str,
                      speaker_dict: Optional[os.PathLike]=None,
-                     voice_cloning: bool=False):
+                     voice_cloning: bool=False,
+                     use_durations: bool=False,
+                     use_pitch: bool=False):
     # model: {model_name}_{dataset}
     am_name = am[:am.rindex('_')]
     am_dataset = am[am.rindex('_') + 1:]
     converters = {}
     if am_name == 'fastspeech2':
         fields = ["utt_id", "text"]
+        if use_durations:
+            fields += ["durations"]
+        if use_pitch:
+            fields += ["pitch"]
+            converters["pitch"] = np.load
         if am_dataset in {"aishell3", "vctk",
                           "mix"} and speaker_dict is not None:
             print("multiple speaker fastspeech2!")

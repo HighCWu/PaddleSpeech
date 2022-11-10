@@ -635,7 +635,7 @@ class FastSpeech2(nn.Layer):
 
         # forward duration predictor and variance predictors
 
-        # TODO 1.0 if the offset param of duration predictor
+        # TODO 1.0 if the offset param of duration prediction loss
         d_outs = None if ds is None else paddle.log(
             ds.cast(dtype='float32') + 1.0).detach()
         d_masks = make_pad_mask(ilens)
@@ -933,9 +933,24 @@ class FastSpeech2Inference(nn.Layer):
         self.normalizer = normalizer
         self.acoustic_model = model
 
-    def forward(self, text, spk_id=None, spk_emb=None):
+    def forward(self,
+                text,
+                spk_id=None,
+                spk_emb=None,
+                durations=None,
+                pitch=None):
+        use_teacher_forcing = False
+        if durations is not None:
+            use_teacher_forcing = True
+        if pitch is not None:
+            use_teacher_forcing = True
         normalized_mel, d_outs, p_outs, e_outs = self.acoustic_model.inference(
-            text, spk_id=spk_id, spk_emb=spk_emb)
+            text,
+            spk_id=spk_id,
+            spk_emb=spk_emb,
+            durations=durations,
+            pitch=pitch,
+            use_teacher_forcing=use_teacher_forcing)
         logmel = self.normalizer.inverse(normalized_mel)
         return logmel
 
