@@ -94,10 +94,8 @@ optimizer:
 ###########################################################
 #                     TRAINING SETTING                    #
 ###########################################################
-num_snapshots: 10            # max number of snapshots to keep while training
-train_max_steps: 810000      # Number of training steps. == total_iters / ngpus, total_iters = 810000
-save_interval_steps: 1000    # Interval steps to save checkpoint.
-eval_interval_steps: 250     # Interval steps to evaluate the network.
+max_epoch: 200000
+num_snapshots: 5
 
 
 ###########################################################
