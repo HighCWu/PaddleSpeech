@@ -27,6 +27,7 @@ from typeguard import check_argument_types
 
 from paddlespeech.t2s.modules.adversarial_loss.gradient_reversal import GradientReversalLayer
 from paddlespeech.t2s.modules.adversarial_loss.speaker_classifier import SpeakerClassifier
+from paddlespeech.t2s.modules.losses import ssim
 from paddlespeech.t2s.modules.nets_utils import initialize
 from paddlespeech.t2s.modules.nets_utils import make_non_pad_mask
 from paddlespeech.t2s.modules.nets_utils import make_pad_mask
@@ -1174,6 +1175,11 @@ class FastSpeech2Loss(nn.Layer):
         """
         speaker_loss = 0.0
 
+        # ssim loss (not to apply mask)
+        ssim_loss = 1.0 - ssim(before_outs[:, None], ys[:, None])
+        if after_outs is not None:
+            ssim_loss += 1.0 - ssim(after_outs[:, None], ys[:, None])
+
         # apply mask to remove padded part
         if self.use_masking:
             out_masks = make_non_pad_mask(olens).unsqueeze(-1)
@@ -1245,4 +1251,4 @@ class FastSpeech2Loss(nn.Layer):
             energy_loss = energy_loss.masked_select(
                 pitch_masks.broadcast_to(energy_loss.shape)).sum()
 
-        return l1_loss, duration_loss, pitch_loss, energy_loss, speaker_loss
+        return l1_loss, ssim_loss, duration_loss, pitch_loss, energy_loss, speaker_loss
