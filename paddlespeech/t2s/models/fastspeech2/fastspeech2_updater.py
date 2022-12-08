@@ -150,6 +150,8 @@ class FastSpeech2Updater(StandardUpdater):
 
         if self.l1_loss_scale > 0.0:
             losses_dict["l1_loss"] = float(l1_loss)
+        if self.ssim_loss_scale > 0.0:
+            losses_dict["ssim_loss"] = float(ssim_loss)
         if self.duration_loss_scale > 0.0:
             losses_dict["duration_loss"] = float(duration_loss)
         if self.pitch_loss_scale > 0.0:
@@ -273,6 +275,8 @@ class FastSpeech2Evaluator(StandardEvaluator):
 
         if self.l1_loss_scale > 0.0:
             losses_dict["l1_loss"] = float(l1_loss)
+        if self.ssim_loss_scale > 0.0:
+            losses_dict["ssim_loss"] = float(ssim_loss)
         if self.duration_loss_scale > 0.0:
             losses_dict["duration_loss"] = float(duration_loss)
         if self.pitch_loss_scale > 0.0:
