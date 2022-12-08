@@ -158,7 +158,17 @@ def train_sp(args, config):
         enable_spk_cls=enable_spk_cls,
         **config["updater"], )
 
-    trainer = Trainer(updater, (config.max_epoch, 'epoch'), output_dir)
+    use_epoch = "max_epoch" in config
+    if use_epoch:
+        trainer_trigger = (config.max_epoch, "epoch")
+        evaluator_trigger = (1, "epoch")
+        snapshot_trigger = (1, "epoch")
+    else:
+        trainer_trigger = (config.train_max_steps, "iteration")
+        evaluator_trigger = (config.eval_interval_steps, "iteration")
+        snapshot_trigger = (config.save_interval_steps, "iteration")
+
+    trainer = Trainer(updater, trainer_trigger, output_dir)
 
     evaluator = FastSpeech2Evaluator(
         model,
@@ -168,10 +178,10 @@ def train_sp(args, config):
         **config["updater"], )
 
     if dist.get_rank() == 0:
-        trainer.extend(evaluator, trigger=(1, "epoch"))
+        trainer.extend(evaluator, trigger=evaluator_trigger)
         trainer.extend(VisualDL(output_dir), trigger=(1, "iteration"))
     trainer.extend(
-        Snapshot(max_size=config.num_snapshots), trigger=(1, 'epoch'))
+        Snapshot(max_size=config.num_snapshots), trigger=snapshot_trigger)
     trainer.run()
 
 
