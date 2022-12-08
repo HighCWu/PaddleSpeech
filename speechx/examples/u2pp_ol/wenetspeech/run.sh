@@ -24,8 +24,6 @@ fi
 
 
 ckpt_dir=$data/model
-model_dir=$ckpt_dir/asr1_chunk_conformer_u2pp_wenetspeech_static_1.3.0.model/
-
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ];then
     #  download u2pp model
@@ -74,13 +72,21 @@ fi
 
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
+    # process cmvn and compute fbank feat
     ./local/feat.sh
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+    # decode with fbank feat input
     ./local/decode.sh
 fi
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-    ./loca/recognizer.sh
+    # decode with wav input
+    ./local/recognizer.sh
+fi
+
+if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
+    # decode with wav input with quanted model
+    ./local/recognizer_quant.sh
 fi

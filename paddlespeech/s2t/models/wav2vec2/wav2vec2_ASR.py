@@ -23,7 +23,9 @@ import paddle.nn.functional as F
 from paddlespeech.s2t.models.wav2vec2.modules.modeling_wav2vec2 import Wav2Vec2ConfigPure
 from paddlespeech.s2t.models.wav2vec2.modules.modeling_wav2vec2 import Wav2Vec2Model
 from paddlespeech.s2t.models.wav2vec2.modules.VanillaNN import VanillaNN
+from paddlespeech.s2t.models.wav2vec2.processing.speech_augmentation import SpecAugment
 from paddlespeech.s2t.modules.ctc import CTCDecoderBase as CTC
+from paddlespeech.s2t.modules.initializer import DefaultInitializerContext
 from paddlespeech.s2t.utils.ctc_utils import remove_duplicates_and_blank
 from paddlespeech.s2t.utils.utility import log_add
 
@@ -31,44 +33,41 @@ from paddlespeech.s2t.utils.utility import log_add
 class Wav2vec2ASR(nn.Layer):
     def __init__(self, config: dict):
         super().__init__()
+        init_type = config.get("init_type", None)
+        with DefaultInitializerContext(init_type):
+            self.config = config
+            wav2vec2_config = Wav2Vec2ConfigPure(config)
+            wav2vec2 = Wav2Vec2Model(wav2vec2_config)
+            self.normalize_wav = config.normalize_wav
+            self.output_norm = config.output_norm
+            if hasattr(config, 'spec_augment'):
+                self.spec_augment = SpecAugment(**config.spec_augment)
 
-        wav2vec2_config = Wav2Vec2ConfigPure(config)
-        wav2vec2 = Wav2Vec2Model(wav2vec2_config)
-        model_dict = paddle.load(config.wav2vec2_params_path)
-        wav2vec2.set_state_dict(model_dict)
-        self.normalize_wav = config.normalize_wav
-        self.output_norm = config.output_norm
-        if config.freeze_wav2vec2:
-            wav2vec2.eval()
-            for parm in wav2vec2.parameters():
-                parm.trainable = False
-        self.wav2vec2 = wav2vec2
-        self.enc = VanillaNN(
-            input_shape=[None, None, wav2vec2_config.hidden_size],
-            activation=nn.LeakyReLU,
-            dnn_blocks=config.dnn_blocks,
-            dnn_neurons=config.dnn_neurons)
-        self.ctc = CTC(odim=config.output_dim,
-                       enc_n_units=config.dnn_neurons,
-                       blank_id=config.blank_id,
-                       dropout_rate=config.ctc_dropout_rate,
-                       reduction='mean')
+            if config.freeze_wav2vec2:
+                wav2vec2.eval()
+                for parm in wav2vec2.parameters():
+                    parm.trainable = False
+            self.wav2vec2 = wav2vec2
+            self.enc = VanillaNN(**config.enc)
+            self.ctc = CTC(**config.ctc,
+                           odim=config.output_dim,
+                           batch_average=False,
+                           reduction='mean')
 
-    def forward(self, wav, wavs_lens_rate, target, target_lens_rate):
+    def forward(self, wav, wavs_lens_rate, target, target_lens):
         if self.normalize_wav:
-            wav = F.layer_norm(wav, wav.shape[1:])
+            wav = F.layer_norm(wav, wav.shape)
         # Extract wav2vec output
         out = self.wav2vec2(wav)[0]
         # We normalize the output if required
         if self.output_norm:
-            out = F.layer_norm(out, out.shape[1:])
-        feats = out
-
+            out = F.layer_norm(out, out.shape)
+        if self.train and hasattr(self.config, 'spec_augment'):
+            feats = self.spec_augment(out)
+        else:
+            feats = out
         x = self.enc(feats)
         x_lens = (wavs_lens_rate * x.shape[1]).round().astype(paddle.int64)
-        target_lens = (target_lens_rate *
-                       target.shape[1]).round().astype(paddle.int64)
-
         ctc_loss = self.ctc(x, x_lens, target, target_lens)
         return ctc_loss
 
@@ -77,28 +76,66 @@ class Wav2vec2ASR(nn.Layer):
                feats: paddle.Tensor,
                text_feature: Dict[str, int],
                decoding_method: str,
-               beam_size: int):
+               beam_size: int,
+               tokenizer: str=None):
         batch_size = feats.shape[0]
 
         if decoding_method == 'ctc_prefix_beam_search' and batch_size > 1:
-            logger.error(
-                f'decoding mode {decoding_method} must be running with batch_size == 1'
+            raise ValueError(
+                f"decoding mode {decoding_method} must be running with batch_size == 1"
             )
-            logger.error(f"current batch_size is {batch_size}")
-            sys.exit(1)
 
         if decoding_method == 'ctc_greedy_search':
-            hyps = self.ctc_greedy_search(feats)
-            res = [text_feature.defeaturize(hyp) for hyp in hyps]
-            res_tokenids = [hyp for hyp in hyps]
+            if tokenizer is None:
+                hyps = self.ctc_greedy_search(feats)
+                res = [text_feature.defeaturize(hyp) for hyp in hyps]
+                res_tokenids = [hyp for hyp in hyps]
+            else:
+                hyps = self.ctc_greedy_search(feats)
+                res = []
+                res_tokenids = []
+                for sequence in hyps:
+                    # Decode token terms to words
+                    predicted_tokens = text_feature.convert_ids_to_tokens(
+                        sequence)
+                    tmp_res = []
+                    tmp_res_tokenids = []
+                    for c in predicted_tokens:
+                        if c == "[CLS]":
+                            continue
+                        elif c == "[SEP]" or c == "[PAD]":
+                            break
+                        else:
+                            tmp_res.append(c)
+                            tmp_res_tokenids.append(text_feature.vocab[c])
+                    res.append(''.join(tmp_res))
+                    res_tokenids.append(tmp_res_tokenids)
         # ctc_prefix_beam_search and attention_rescoring only return one
         # result in List[int], change it to List[List[int]] for compatible
         # with other batch decoding mode
         elif decoding_method == 'ctc_prefix_beam_search':
             assert feats.shape[0] == 1
-            hyp = self.ctc_prefix_beam_search(feats, beam_size)
-            res = [text_feature.defeaturize(hyp)]
-            res_tokenids = [hyp]
+            if tokenizer is None:
+                hyp = self.ctc_prefix_beam_search(feats, beam_size)
+                res = [text_feature.defeaturize(hyp)]
+                res_tokenids = [hyp]
+            else:
+                hyp = self.ctc_prefix_beam_search(feats, beam_size)
+                res = []
+                res_tokenids = []
+                predicted_tokens = text_feature.convert_ids_to_tokens(hyp)
+                tmp_res = []
+                tmp_res_tokenids = []
+                for c in predicted_tokens:
+                    if c == "[CLS]":
+                        continue
+                    elif c == "[SEP]" or c == "[PAD]":
+                        break
+                    else:
+                        tmp_res.append(c)
+                        tmp_res_tokenids.append(text_feature.vocab[c])
+                res.append(''.join(tmp_res))
+                res_tokenids.append(tmp_res_tokenids)
         else:
             raise ValueError(
                 f"wav2vec2 not support decoding method: {decoding_method}")
@@ -239,3 +276,33 @@ class Wav2vec2ASR(nn.Layer):
         """
         hyps = self._ctc_prefix_beam_search(wav, beam_size)
         return hyps[0][0]
+
+
+class Wav2vec2Base(nn.Layer):
+    """Wav2vec2 model"""
+
+    def __init__(self, config: dict):
+        super().__init__()
+        wav2vec2_config = Wav2Vec2ConfigPure(config)
+        wav2vec2 = Wav2Vec2Model(wav2vec2_config)
+        self.wav2vec2 = wav2vec2
+
+    @classmethod
+    def from_config(cls, configs: dict):
+        """init model.
+
+        Args:
+            configs (dict): config dict.
+
+        Raises:
+            ValueError: raise when using not support encoder type.
+
+        Returns:
+            nn.Layer: Wav2Vec2Base
+        """
+        model = cls(configs)
+        return model
+
+    def forward(self, wav):
+        out = self.wav2vec2(wav)
+        return out

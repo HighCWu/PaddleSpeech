@@ -12,8 +12,8 @@ There are 3 ways to use `PaddleSpeech`. According to the degree of difficulty, t
 - Python >= 3.7
 - PaddlePaddle latest version (please refer to the [Installation Guide](https://www.paddlepaddle.org.cn/documentation/docs/en/beginners_guide/index_en.html))
 - C++ compilation environment
-- Hip: For Linux and Mac, do not use command `sh` instead of command `bash` in installation document.
-- Hip: We recommand you to install `paddlepaddle` from https://mirror.baidu.com/pypi/simple and install `paddlespeech` from https://pypi.tuna.tsinghua.edu.cn/simple. 
+- Tip: For Linux and Mac, do not use command `sh` instead of command `bash` in installation document.
+- Tip: We recommand you to install `paddlepaddle` from https://mirror.baidu.com/pypi/simple and install `paddlespeech` from https://pypi.tuna.tsinghua.edu.cn/simple. 
 
 ## Easy: Get the Basic Function (Support Linux, Mac, and Windows)
 - If you are newer to `PaddleSpeech` and want to experience it easily without your machine. We recommend you to use [AI Studio](https://aistudio.baidu.com/aistudio/index) to experience it. There is a step-by-step [tutorial](https://aistudio.baidu.com/aistudio/education/group/info/25130) for `PaddleSpeech`, and you can use the basic function of `PaddleSpeech` with a free machine.
@@ -63,8 +63,8 @@ pip install paddlespeech -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 You can also specify the version of paddlepaddle or install the develop version. 
 ```bash
-# install 2.3.1 version. Note, 2.3.1 is just an example, please follow the minimum dependency of paddlepaddle for your selection
-pip install paddlepaddle==2.3.1 -i https://mirror.baidu.com/pypi/simple
+# install 2.4.0 version. Note, 2.4.0 is just an example, please follow the minimum dependency of paddlepaddle for your selection
+pip install paddlepaddle==2.4.0 -i https://mirror.baidu.com/pypi/simple
 # install develop version
 pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
 ```
@@ -124,9 +124,9 @@ conda install -y -c gcc_linux-64=8.4.0 gxx_linux-64=8.4.0
 ```
 (Hip: Do not use the last script if you want to install by **Hard** way):
 ### Install PaddlePaddle
-You can choose the `PaddlePaddle` version based on your system. For example, for CUDA 10.2, CuDNN7.6 install paddlepaddle-gpu 2.4rc:
+You can choose the `PaddlePaddle` version based on your system. For example, for CUDA 10.2, CuDNN7.6 install paddlepaddle-gpu 2.4:
 ```bash
-# Note, 2.4rc is just an example, please follow the minimum dependency of paddlepaddle for your selection
+# Note, 2.4 is just an example, please follow the minimum dependency of paddlepaddle for your selection
 python3 -m pip install paddlepaddle-gpu==2.4.0rc0 -i https://mirror.baidu.com/pypi/simple
 ```
 You can also install the develop version of paddlepaddle. For example, for CUDA 10.2, CuDNN7.6 install paddlepaddle-gpu develop:
@@ -188,10 +188,10 @@ conda activate tools/venv
 conda install -y -c conda-forge sox libsndfile swig bzip2 libflac bc
 ```
 ### Install PaddlePaddle
-Make sure you have GPU and the paddlepaddle version is right. For example, for CUDA 10.2, CuDNN7.6 install paddle 2.4rc:
+Make sure you have GPU and the paddlepaddle version is right. For example, for CUDA 10.2, CuDNN7.6 install paddle 2.4:
 ```bash
-# Note, 2.4rc is just an example, please follow the minimum dependency of paddlepaddle for your selection
-python3 -m pip install paddlepaddle-gpu==2.4.0rc0 -i https://mirror.baidu.com/pypi/simple
+# Note, 2.4 is just an example, please follow the minimum dependency of paddlepaddle for your selection
+python3 -m pip install paddlepaddle-gpu==2.4.0 -i https://mirror.baidu.com/pypi/simple
 ```
 You can also install the develop version of paddlepaddle. For example, for CUDA 10.2, CuDNN7.6 install paddlepaddle-gpu develop:
 ```bash
