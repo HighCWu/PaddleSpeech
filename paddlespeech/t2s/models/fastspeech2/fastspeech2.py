@@ -636,7 +636,6 @@ class FastSpeech2(nn.Layer):
 
         # forward duration predictor and variance predictors
 
-        # TODO 1.0 if the offset param of duration prediction loss
         d_outs = ds
         d_masks = make_pad_mask(ilens)
         p_outs = ps
@@ -676,6 +675,7 @@ class FastSpeech2(nn.Layer):
             hs = self.length_regulator(hs, d_outs, alpha, is_inference=True)
         else:
             if self.duration_predictor is None:
+                # TODO 1.0 is the offset param of duration prediction loss
                 d_outs = paddle.log(ds.cast(dtype='float32') + 1.0).detach()
             else:
                 d_outs = self.duration_predictor(hs, d_masks)
