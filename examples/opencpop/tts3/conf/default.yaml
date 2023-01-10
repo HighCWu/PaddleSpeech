@@ -82,11 +82,8 @@ model:
 ###########################################################
 updater:
     use_masking: True                 # whether to apply masking for padded part in loss calculation
-    l1_loss_scale: 0.5                # The scales of mel l1 loss
-    ssim_loss_scale: 0.5              # The scales of mel ssim loss
     duration_loss_scale: 0.0          # The scales of duration loss
     pitch_loss_scale: 0.0             # The scales of pitch loss
-    energy_loss_scale: 1.0            # The scales of energy loss
 
 
 ###########################################################

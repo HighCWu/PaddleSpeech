@@ -780,7 +780,7 @@ def _ssim(img1, img2, window, window_size, channel, size_average=True):
     if size_average:
         return ssim_map.mean()
     else:
-        return ssim_map.mean(1)
+        return ssim_map.mean(1).mean(1).mean(1)
 
 
 def ssim(img1, img2, window_size=11, size_average=True):

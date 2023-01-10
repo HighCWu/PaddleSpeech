@@ -27,7 +27,6 @@ from typeguard import check_argument_types
 
 from paddlespeech.t2s.modules.adversarial_loss.gradient_reversal import GradientReversalLayer
 from paddlespeech.t2s.modules.adversarial_loss.speaker_classifier import SpeakerClassifier
-from paddlespeech.t2s.modules.losses import ssim
 from paddlespeech.t2s.modules.nets_utils import initialize
 from paddlespeech.t2s.modules.nets_utils import make_non_pad_mask
 from paddlespeech.t2s.modules.nets_utils import make_pad_mask
@@ -1121,36 +1120,6 @@ class FastSpeech2Loss(nn.Layer):
         self.duration_criterion = DurationPredictorLoss(reduction=reduction)
         self.ce_criterion = nn.CrossEntropyLoss()
 
-    def ssim_criterion(
-            self, 
-            decoder_output: paddle.Tensor, 
-            target: paddle.Tensor, 
-            weights: paddle.Tensor, 
-            bias: int=6.0,
-    ) -> paddle.Tensor:
-        """Calculate ssim loss.
-
-        Args:
-            decoder_output(Tensor):  
-                Batch of fastspeech2 output features (B, Lmax, odim).
-            target(Tensor):
-                Batch of target features (B, Lmax, odim).
-            weights(Tensor):
-                Loss weights for each time (B, Lmax, odim).
-            bias(int):
-                Bias be added to target feature. (default: 6.0)
-
-        Returns:
-            Tensor: ssim loss
-
-        """
-        assert decoder_output.shape == target.shape
-        decoder_output = decoder_output[:, None] + bias
-        target = target[:, None] + bias
-        ssim_loss = 1 - ssim(decoder_output, target, size_average=False)
-        ssim_loss = (ssim_loss * weights).sum() / weights.sum()
-        return ssim_loss
-
     def forward(
             self,
             after_outs: paddle.Tensor,
@@ -1204,19 +1173,6 @@ class FastSpeech2Loss(nn.Layer):
         
         """
         speaker_loss = 0.0
-
-        if not self.use_weighted_masking:
-            ssim_masks = make_non_pad_mask(olens).unsqueeze(-1)
-            ssim_weights = ssim_masks.cast(paddle.float32).broadcast_to(ys.shape)
-        else:
-            ssim_masks = make_non_pad_mask(olens).unsqueeze(-1)
-            ssim_weights = ssim_masks.cast(dtype=paddle.float32) / ssim_masks.cast(
-                dtype=paddle.float32).sum(
-                    axis=1, keepdim=True)
-            ssim_weights /= ys.shape[0] * ys.shape[2]
-        ssim_loss = self.ssim_criterion(before_outs, ys, ssim_weights)
-        if after_outs is not None:
-            ssim_loss += self.ssim_criterion(after_outs, ys, ssim_weights)
 
         # apply mask to remove padded part
         if self.use_masking:
@@ -1289,4 +1245,4 @@ class FastSpeech2Loss(nn.Layer):
             energy_loss = energy_loss.masked_select(
                 pitch_masks.broadcast_to(energy_loss.shape)).sum()
 
-        return l1_loss, ssim_loss, duration_loss, pitch_loss, energy_loss, speaker_loss
+        return l1_loss, duration_loss, pitch_loss, energy_loss, speaker_loss
