@@ -122,6 +122,7 @@ class FastSpeech2(nn.Layer):
             energy_embed_kernel_size: int=9,
             energy_embed_dropout: float=0.5,
             stop_gradient_from_energy_predictor: bool=False,
+            enable_energy_predictor: bool=True,
             # pitch predictor
             pitch_predictor_layers: int=2,
             pitch_predictor_chans: int=384,
@@ -240,10 +241,10 @@ class FastSpeech2(nn.Layer):
                 Kernel size of pitch embedding.
             pitch_embed_dropout_rate (float): 
                 Dropout rate for pitch embedding.
-            enable_pitch_predictor (bool):
-                Whether to use pitch predictor module.
             stop_gradient_from_pitch_predictor (bool): 
                 Whether to stop gradient from pitch predictor to encoder.
+            enable_pitch_predictor (bool):
+                Whether to use pitch predictor module.
             energy_predictor_layers (int): 
                 Number of energy predictor layers.
             energy_predictor_chans (int): 
@@ -258,6 +259,8 @@ class FastSpeech2(nn.Layer):
                 Dropout rate for energy embedding.
             stop_gradient_from_energy_predictor（bool): 
                 Whether to stop gradient from energy predictor to encoder.
+            enable_energy_predictor (bool):
+                Whether to use energy predictor module.
             spk_num (Optional[int]): 
                 Number of speakers. If not None, assume that the spk_embed_dim is not None,
                 spk_ids will be provided as the input and use spk_embedding_table.
@@ -426,12 +429,14 @@ class FastSpeech2(nn.Layer):
             nn.Dropout(pitch_embed_dropout), )
 
         # define energy predictor
-        self.energy_predictor = VariancePredictor(
-            idim=adim,
-            n_layers=energy_predictor_layers,
-            n_chans=energy_predictor_chans,
-            kernel_size=energy_predictor_kernel_size,
-            dropout_rate=energy_predictor_dropout, )
+        self.energy_predictor = None
+        if enable_energy_predictor:
+            self.energy_predictor = VariancePredictor(
+                idim=adim,
+                n_layers=energy_predictor_layers,
+                n_chans=energy_predictor_chans,
+                kernel_size=energy_predictor_kernel_size,
+                dropout_rate=energy_predictor_dropout, )
         # We use continuous enegy + FastPitch style avg
         self.energy_embed = nn.Sequential(
             nn.Conv1D(
@@ -638,6 +643,7 @@ class FastSpeech2(nn.Layer):
         d_outs = ds
         d_masks = make_pad_mask(ilens)
         p_outs = ps
+        e_outs = es
 
         if self.pitch_predictor is not None:
             if self.stop_gradient_from_pitch_predictor:
@@ -645,10 +651,11 @@ class FastSpeech2(nn.Layer):
                                               d_masks.unsqueeze(-1))
             else:
                 p_outs = self.pitch_predictor(hs, d_masks.unsqueeze(-1))
-        if self.stop_gradient_from_energy_predictor:
-            e_outs = self.energy_predictor(hs.detach(), d_masks.unsqueeze(-1))
-        else:
-            e_outs = self.energy_predictor(hs, d_masks.unsqueeze(-1))
+        if self.energy_predictor is not None:
+            if self.stop_gradient_from_energy_predictor:
+                e_outs = self.energy_predictor(hs.detach(), d_masks.unsqueeze(-1))
+            else:
+                e_outs = self.energy_predictor(hs, d_masks.unsqueeze(-1))
 
         if is_inference:
             # (B, Tmax)

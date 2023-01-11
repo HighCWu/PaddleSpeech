@@ -67,7 +67,8 @@ def evaluate(args):
         speaker_dict=args.speaker_dict,
         voice_cloning=args.voice_cloning,
         use_durations=args.use_durations,
-        use_pitch=args.use_pitch)
+        use_pitch=args.use_pitch,
+        use_energy=args.use_energy)
 
     # vocoder
     voc_inference = get_voc_inference(
@@ -93,10 +94,13 @@ def evaluate(args):
                     spk_id = None
                     durations = None
                     pitch = None
+                    energy = None
                     if args.use_durations:
                         durations = paddle.to_tensor(datum["durations"])
                     if args.use_pitch:
                         pitch = paddle.to_tensor(datum["pitch"])
+                    if args.use_energy:
+                        energy = paddle.to_tensor(datum["energy"])
                     # multi speaker
                     if args.voice_cloning and "spk_emb" in datum:
                         spk_emb = paddle.to_tensor(np.load(datum["spk_emb"]))
@@ -107,7 +111,8 @@ def evaluate(args):
                         spk_id=spk_id,
                         spk_emb=spk_emb,
                         durations=durations,
-                        pitch=pitch)
+                        pitch=pitch,
+                        energy=energy)
                 elif am_name == 'speedyspeech':
                     phone_ids = paddle.to_tensor(datum["phones"])
                     tone_ids = paddle.to_tensor(datum["tones"])
@@ -213,6 +218,11 @@ def parse_args():
         type=str,
         default=False,
         help="whether use existed pitch as an input of acoustic model.")
+    parser.add_argument(
+        "--use_energy",
+        type=str,
+        default=False,
+        help="whether use existed energy as an input of acoustic model.")
 
     args = parser.parse_args()
     return args

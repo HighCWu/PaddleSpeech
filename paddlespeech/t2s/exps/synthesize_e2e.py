@@ -116,14 +116,22 @@ def evaluate(args):
                 flags = 0
                 for i in range(len(phone_ids)):
                     part_phone_ids = phone_ids[i]
+                    part_durations = frontend_dict.get('durations', [None] * len(phone_ids))[i]
+                    part_pitch = frontend_dict.get('pitch', [None] * len(phone_ids))[i]
+                    part_energy = frontend_dict.get('energy', [None] * len(phone_ids))[i]
                     # acoustic model
                     if am_name == 'fastspeech2':
                         # multi speaker
                         if am_dataset in {"aishell3", "vctk", "mix"}:
                             spk_id = paddle.to_tensor(args.spk_id)
-                            mel = am_inference(part_phone_ids, spk_id)
                         else:
-                            mel = am_inference(part_phone_ids)
+                            spk_id = None
+                        mel = am_inference(
+                            part_phone_ids,
+                            spk_id=spk_id,
+                            durations=part_durations,
+                            pitch=part_pitch,
+                            energy=part_energy)
                     elif am_name == 'speedyspeech':
                         part_tone_ids = frontend_dict['tone_ids'][i]
                         if am_dataset in {"aishell3", "vctk", "mix"}:
