@@ -653,7 +653,8 @@ class FastSpeech2(nn.Layer):
                 p_outs = self.pitch_predictor(hs, d_masks.unsqueeze(-1))
         if self.energy_predictor is not None:
             if self.stop_gradient_from_energy_predictor:
-                e_outs = self.energy_predictor(hs.detach(), d_masks.unsqueeze(-1))
+                e_outs = self.energy_predictor(hs.detach(),
+                                               d_masks.unsqueeze(-1))
             else:
                 e_outs = self.energy_predictor(hs, d_masks.unsqueeze(-1))
 
@@ -938,9 +939,15 @@ class FastSpeech2(nn.Layer):
 
 
 class FastSpeech2Inference(nn.Layer):
-    def __init__(self, normalizer, model):
+    def __init__(self,
+                 normalizer,
+                 model,
+                 pitch_normalizer=None,
+                 energy_normalizer=None):
         super().__init__()
         self.normalizer = normalizer
+        self.pitch_normalizer = pitch_normalizer
+        self.energy_normalizer = energy_normalizer
         self.acoustic_model = model
 
     def forward(self,
@@ -948,18 +955,26 @@ class FastSpeech2Inference(nn.Layer):
                 spk_id=None,
                 spk_emb=None,
                 durations=None,
-                pitch=None):
+                pitch=None,
+                energy=None):
         use_teacher_forcing = False
         if durations is not None:
             use_teacher_forcing = True
         if pitch is not None:
             use_teacher_forcing = True
+            if self.pitch_normalizer is not None:
+                pitch = self.pitch_normalizer(pitch)
+        if energy is not None:
+            use_teacher_forcing = True
+            if self.energy_normalizer is not None:
+                energy = self.energy_normalizer(energy)
         normalized_mel, d_outs, p_outs, e_outs = self.acoustic_model.inference(
             text,
             spk_id=spk_id,
             spk_emb=spk_emb,
             durations=durations,
             pitch=pitch,
+            energy=energy,
             use_teacher_forcing=use_teacher_forcing)
         logmel = self.normalizer.inverse(normalized_mel)
         return logmel

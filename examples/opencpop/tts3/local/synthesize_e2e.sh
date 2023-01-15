@@ -17,6 +17,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
         --am_config=${config_path} \
         --am_ckpt=${train_output_path}/checkpoints/${ckpt_name} \
         --am_stat=dump/train/speech_stats.npy \
+        --am_pitch_stat=dump/train/pitch_stats.npy \
         --voc=hifigan_opencpop \
         --voc_config=hifigan_opencpop_ckpt/default.yaml \
         --voc_ckpt=hifigan_opencpop_ckpt/snapshot_iter_2500000.pdz \

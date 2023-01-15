@@ -52,6 +52,10 @@ def evaluate(args):
         phones_dict=args.phones_dict,
         tones_dict=args.tones_dict,
         use_rhy=args.use_rhy)
+    if hasattr(frontend, 'sample_rate'):
+        frontend.sample_rate = am_config.fs
+    if hasattr(frontend, 'hop_length'):
+        frontend.hop_length = am_config.n_shift
     print("frontend done!")
 
     # acoustic model
@@ -63,6 +67,8 @@ def evaluate(args):
         am_config=am_config,
         am_ckpt=args.am_ckpt,
         am_stat=args.am_stat,
+        am_pitch_stat=args.am_pitch_stat,
+        am_energy_stat=args.am_energy_stat,
         phones_dict=args.phones_dict,
         tones_dict=args.tones_dict,
         speaker_dict=args.speaker_dict)
@@ -116,9 +122,12 @@ def evaluate(args):
                 flags = 0
                 for i in range(len(phone_ids)):
                     part_phone_ids = phone_ids[i]
-                    part_durations = frontend_dict.get('durations', [None] * len(phone_ids))[i]
-                    part_pitch = frontend_dict.get('pitch', [None] * len(phone_ids))[i]
-                    part_energy = frontend_dict.get('energy', [None] * len(phone_ids))[i]
+                    part_durations = frontend_dict.get('durations', [None] *
+                                                       len(phone_ids))[i]
+                    part_pitch = frontend_dict.get('pitch',
+                                                   [None] * len(phone_ids))[i]
+                    part_energy = frontend_dict.get('energy',
+                                                    [None] * len(phone_ids))[i]
                     # acoustic model
                     if am_name == 'fastspeech2':
                         # multi speaker
@@ -175,7 +184,8 @@ def parse_args():
         choices=[
             'speedyspeech_csmsc', 'speedyspeech_aishell3', 'fastspeech2_csmsc',
             'fastspeech2_ljspeech', 'fastspeech2_aishell3', 'fastspeech2_vctk',
-            'tacotron2_csmsc', 'tacotron2_ljspeech', 'fastspeech2_mix'
+            'tacotron2_csmsc', 'tacotron2_ljspeech', 'fastspeech2_mix',
+            'fastspeech2_opencpop'
         ],
         help='Choose acoustic model type of tts task.')
     parser.add_argument(
@@ -190,6 +200,18 @@ def parse_args():
         type=str,
         default=None,
         help="mean and standard deviation used to normalize spectrogram when training acoustic model."
+    )
+    parser.add_argument(
+        "--am_pitch_stat",
+        type=str,
+        default=None,
+        help="mean and standard deviation used to normalize pitch when training acoustic model."
+    )
+    parser.add_argument(
+        "--am_energy_stat",
+        type=str,
+        default=None,
+        help="mean and standard deviation used to normalize energy when training acoustic model."
     )
     parser.add_argument(
         "--phones_dict", type=str, default=None, help="phone vocabulary file.")
@@ -219,6 +241,7 @@ def parse_args():
             'hifigan_aishell3',
             'hifigan_vctk',
             'wavernn_csmsc',
+            'hifigan_opencpop',
         ],
         help='Choose vocoder type of tts task.')
     parser.add_argument(

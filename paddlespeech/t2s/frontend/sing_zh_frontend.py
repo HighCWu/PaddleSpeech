@@ -14,6 +14,7 @@
 from typing import Dict
 from typing import List
 
+import librosa
 import numpy as np
 import paddle
 
@@ -32,6 +33,8 @@ class SingFrontend():
         if 'SP' in self.zh_frontend.vocab_phones.keys():
             self.zh_frontend.vocab_phones['sp'] = self.zh_frontend.vocab_phones[
                 'SP']
+        self.sample_rate = None
+        self.hop_length = None
 
     def parse_lyrics(self, sentence: str):
         lyrics = sentence.split("<type:lyrics>")[1].split("<type:")[0]
@@ -92,6 +95,8 @@ class SingFrontend():
                     phoneme = phoneme[1:]
                 elif len(phoneme) > 2:
                     phoneme = phoneme[0] + phoneme[2:]
+            if phoneme == 'iou':
+                phoneme = 'iu'
             if phoneme[:1] in 'aeiouv':
                 if pre_phoneme[:1] not in 'aeiouv':
                     nest_phonemes.append([pre_phoneme, phoneme])
@@ -129,7 +134,7 @@ class SingFrontend():
             if len(phonemes) > 1 + inserted_phones:
                 notes.insert(0, notes[0])
         notes = [note for notes in nest_notes for note in notes]
-        pitch = Pitch().get_pitch_by_note(notes).reshape(-1)
+        pitch = Pitch().get_pitch_by_note(notes).reshape(-1, 1)
 
         return np.float32(np.asarray(pitch)), nest_phonemes
 
@@ -143,13 +148,21 @@ class SingFrontend():
             if '<slur>' in phonemes:
                 inserted_phones = 1
             if len(phonemes) > 1 + inserted_phones:
-                durations.insert(0, 0.03)
-                durations[1] -= 0.03
+                durations.insert(0, 0.04)
+                durations[1] -= 0.04
         durations = [
             duration for durations in nest_durations for duration in durations
         ]
+        ends = []
+        end = 0
+        for duration in durations:
+            end += duration
+            ends.append(end)
+        frame_pos = librosa.time_to_frames(
+            ends, sr=self.sample_rate, hop_length=self.hop_length)
+        durations = np.diff(frame_pos, prepend=0)
 
-        return np.float32(np.asarray(durations))
+        return np.int64(np.asarray(durations))
 
     def get_input_ids(self,
                       sentence: str,
@@ -177,7 +190,7 @@ class SingFrontend():
         if merge_sentences:
             phone_ids_list = np.concatenate(phone_ids_list, 0)
             durations_list = np.concatenate(durations_list, 0)
-            pitch_list = np.concatenate(pitch_list, 0)
+            pitch_list = np.concatenate(pitch_list, 0)[..., None]
             if to_tensor:
                 phone_ids_list = paddle.to_tensor(phone_ids_list)
                 durations_list = paddle.to_tensor(durations_list)

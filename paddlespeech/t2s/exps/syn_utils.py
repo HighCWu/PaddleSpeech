@@ -343,6 +343,8 @@ def get_am_inference(am: str='fastspeech2_csmsc',
                      am_config: CfgNode=None,
                      am_ckpt: Optional[os.PathLike]=None,
                      am_stat: Optional[os.PathLike]=None,
+                     am_pitch_stat: Optional[os.PathLike]=None,
+                     am_energy_stat: Optional[os.PathLike]=None,
                      phones_dict: Optional[os.PathLike]=None,
                      tones_dict: Optional[os.PathLike]=None,
                      speaker_dict: Optional[os.PathLike]=None,
@@ -388,7 +390,26 @@ def get_am_inference(am: str='fastspeech2_csmsc',
     am_mu = paddle.to_tensor(am_mu)
     am_std = paddle.to_tensor(am_std)
     am_normalizer = ZScore(am_mu, am_std)
-    am_inference = am_inference_class(am_normalizer, am)
+    am_pitch_normalizer = None
+    if am_pitch_stat is not None:
+        am_pitch_mu, am_pitch_std = np.load(am_pitch_stat)
+        am_pitch_mu = paddle.to_tensor(am_pitch_mu)
+        am_pitch_std = paddle.to_tensor(am_pitch_std)
+        am_pitch_normalizer = ZScore(am_pitch_mu, am_pitch_std)
+    am_energy_normalizer = None
+    if am_energy_stat is not None:
+        am_energy_mu, am_energy_std = np.load(am_energy_stat)
+        am_energy_mu = paddle.to_tensor(am_energy_mu)
+        am_energy_std = paddle.to_tensor(am_energy_std)
+        am_energy_normalizer = ZScore(am_energy_mu, am_energy_std)
+    try:
+        am_inference = am_inference_class(
+            am_normalizer,
+            am,
+            pitch_normalizer=am_pitch_normalizer,
+            energy_normalizer=am_energy_normalizer)
+    except Exception as _:
+        am_inference = am_inference_class(am_normalizer, am)
     am_inference.eval()
     if return_am:
         return am_inference, am
