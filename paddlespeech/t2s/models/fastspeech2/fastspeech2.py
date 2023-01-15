@@ -27,6 +27,8 @@ from typeguard import check_argument_types
 
 from paddlespeech.t2s.modules.adversarial_loss.gradient_reversal import GradientReversalLayer
 from paddlespeech.t2s.modules.adversarial_loss.speaker_classifier import SpeakerClassifier
+from paddlespeech.t2s.modules.diffusion import GaussianDiffusion
+from paddlespeech.t2s.modules.diffusion import WaveNetDenoiser
 from paddlespeech.t2s.modules.nets_utils import initialize
 from paddlespeech.t2s.modules.nets_utils import make_non_pad_mask
 from paddlespeech.t2s.modules.nets_utils import make_pad_mask
@@ -146,7 +148,13 @@ class FastSpeech2(nn.Layer):
             init_dec_alpha: float=1.0,
             # speaker classifier
             enable_speaker_classifier: bool=False,
-            hidden_sc_dim: int=256, ):
+            hidden_sc_dim: int=256,
+            # denoiser
+            denoiser_type: str="none",
+            denoiser_params: Dict=None,
+            # diffusion
+            diffusion_type: str="none",
+            diffusion_params: Dict=None):
         """Initialize FastSpeech2 module.
         Args:
             idim (int): 
@@ -286,7 +294,14 @@ class FastSpeech2(nn.Layer):
                 Whether to use speaker classifier module
             hidden_sc_dim (int):
                 The hidden layer dim of speaker classifier
-    
+            denoiser_type (str):
+                The denoiser type for diffusion, "none" or "wavenet_denoiser".
+            denoiser_params (Dict):
+                Config for denoiser.
+            diffusion_type (str):
+                The diffusion type, "none" or "gaussian_diffusion".
+            diffusion_params (Dict):
+                Config for diffusion.
         """
         assert check_argument_types()
         super().__init__()
@@ -497,6 +512,8 @@ class FastSpeech2(nn.Layer):
                 kernel_size=cnn_postnet_kernel_size,
                 dropout_rate=cnn_dec_dropout_rate,
                 resblock_kernel_sizes=cnn_postnet_resblock_kernel_sizes)
+        elif decoder_type == 'diffusion' and diffusion_type != 'none':
+            self.decoder = None
         else:
             raise ValueError(f"{decoder_type} is not supported.")
 
@@ -519,6 +536,22 @@ class FastSpeech2(nn.Layer):
                 n_filts=postnet_filts,
                 use_batch_norm=use_batch_norm,
                 dropout_rate=postnet_dropout_rate, ))
+
+        if denoiser_type == 'none':
+            self.denoiser = None
+        elif denoiser_type == 'wavenet_denoiser':
+            self.denoiser = WaveNetDenoiser(**denoiser_params)
+        else:
+            raise ValueError(f"{denoiser_type} is not supported.")
+
+        if diffusion_type == 'none':
+            self.diffusion = None
+        elif diffusion_type == 'gaussian_diffusion':
+            if self.denoiser is None:
+                raise ValueError(f"{diffusion_type} should have a denoiser.")
+            self.diffusion = GaussianDiffusion(**diffusion_params)
+        else:
+            raise ValueError(f"{diffusion_type} is not supported.")
 
         nn.initializer.set_global_initializer(None)
 
@@ -587,10 +620,17 @@ class FastSpeech2(nn.Layer):
             ds,
             ps,
             es,
+            ys,
             is_inference=False,
             spk_emb=spk_emb,
             spk_id=spk_id,
             tone_id=tone_id)
+
+        # post-process diffusion output
+        if self.diffusion is not None:
+            ys = after_outs
+            after_outs = None
+
         # modify mod part of groundtruth
         if self.reduction_factor > 1:
             olens = olens - olens % self.reduction_factor
@@ -606,6 +646,7 @@ class FastSpeech2(nn.Layer):
                  ds: paddle.Tensor=None,
                  ps: paddle.Tensor=None,
                  es: paddle.Tensor=None,
+                 ys: paddle.Tensor=None,
                  is_inference: bool=False,
                  return_after_enc=False,
                  alpha: float=1.0,
@@ -709,6 +750,13 @@ class FastSpeech2(nn.Layer):
             h_masks = None
         if return_after_enc:
             return hs, h_masks
+
+        if self.diffusion is not None:
+            # use noisy_mels as before_outs
+            # use noise as after_outs
+            before_outs, after_outs = self.diffusion(ys, hs)
+
+            return before_outs, after_outs, d_outs, p_outs, e_outs, spk_logits
 
         if self.decoder_type == 'cnndecoder':
             # remove output masks for dygraph to static graph

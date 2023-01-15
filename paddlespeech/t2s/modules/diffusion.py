@@ -247,7 +247,7 @@ class GaussianDiffusion(nn.Layer):
         >>> diffusion = GaussianDiffusion(denoiser, num_train_timesteps=ds, num_max_timesteps=K_step)
         >>> with paddle.no_grad():
         >>>     sample = diffusion.inference(
-        >>>         paddle.randn(x.shape), c, x, 
+        >>>         paddle.randn(x.shape), c, ref_x=x_in, 
         >>>         num_inference_steps=infer_steps,
         >>>         scheduler_type=scheduler_type,
         >>>         callback=create_progress_callback())
@@ -262,7 +262,7 @@ class GaussianDiffusion(nn.Layer):
         >>> diffusion = GaussianDiffusion(denoiser, num_train_timesteps=ds, num_max_timesteps=K_step)
         >>> with paddle.no_grad():
         >>>     sample = diffusion.inference(
-        >>>         paddle.randn(x.shape), c, x_in, 
+        >>>         paddle.randn(x.shape), c, ref_x=x_in, 
         >>>         num_inference_steps=infer_steps,
         >>>         scheduler_type=scheduler_type,
         >>>         callback=create_progress_callback())
@@ -277,7 +277,7 @@ class GaussianDiffusion(nn.Layer):
         >>> diffusion = GaussianDiffusion(denoiser, num_train_timesteps=ds, num_max_timesteps=K_step)
         >>> with paddle.no_grad():
         >>>     sample = diffusion.inference(
-        >>>         paddle.randn(x.shape), c, None, 
+        >>>         paddle.randn(x.shape), c, ref_x=x_in, 
         >>>         num_inference_steps=infer_steps,
         >>>         scheduler_type=scheduler_type,
         >>>         callback=create_progress_callback())
@@ -292,7 +292,7 @@ class GaussianDiffusion(nn.Layer):
         >>> diffusion = GaussianDiffusion(denoiser, num_train_timesteps=ds, num_max_timesteps=K_step)
         >>> with paddle.no_grad():
         >>>     sample = diffusion.inference(
-        >>>         paddle.randn(x.shape), c, x, 
+        >>>         paddle.randn(x.shape), c, ref_x=x_in, 
         >>>         num_inference_steps=infer_steps,
         >>>         scheduler_type=scheduler_type,
         >>>         callback=create_progress_callback())

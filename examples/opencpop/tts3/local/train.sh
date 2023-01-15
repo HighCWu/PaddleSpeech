@@ -2,6 +2,7 @@
 
 config_path=$1
 train_output_path=$2
+pretrained_model=$3
 
 python3 ${BIN_DIR}/train.py \
     --train-metadata=dump/train/norm/metadata.jsonl \
@@ -9,4 +10,5 @@ python3 ${BIN_DIR}/train.py \
     --config=${config_path} \
     --output-dir=${train_output_path} \
     --ngpu=1 \
-    --phones-dict=dump/phone_id_map.txt
+    --phones-dict=dump/phone_id_map.txt \
+    --pretrained-model=${pretrained_model}

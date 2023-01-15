@@ -131,11 +131,23 @@ def train_sp(args, config):
     odim = config.n_mels
     model = FastSpeech2(
         idim=vocab_size, odim=odim, spk_num=spk_num, **config["model"])
+    if args.pretrained_model != '':
+        state_dict = paddle.load(args.pretrained_model)
+        state_dict = state_dict.get('main_params', state_dict)
+        model.set_state_dict(paddle.load(args.pretrained_model))
+    trainable_model = model
     if world_size > 1:
         model = DataParallel(model)
     print("model done!")
 
-    optimizer = build_optimizers(model, **config["optimizer"])
+    if config.get("train_diffusion_only", False):
+        assert args.pretrained_model != '', "'train_diffusion_only' need a pretrained fastspeech2"
+        trainable_model = trainable_model.diffusion
+        if world_size > 1:
+            trainable_model = DataParallel(trainable_model)
+    else:
+        trainable_model = model
+    optimizer = build_optimizers(trainable_model, **config["optimizer"])
     print("optimizer done!")
 
     output_dir = Path(args.output_dir)
@@ -201,6 +213,11 @@ def main():
         type=str,
         default=None,
         help="speaker id map file for multiple speaker model.")
+    parser.add_argument(
+        "--pretrained-model",
+        type=str,
+        default='',
+        help="pretrained fastspeech2 model path.")
 
     parser.add_argument(
         "--voice-cloning",
