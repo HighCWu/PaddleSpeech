@@ -134,7 +134,8 @@ def train_sp(args, config):
     if args.pretrained_model != '':
         state_dict = paddle.load(args.pretrained_model)
         state_dict = state_dict.get('main_params', state_dict)
-        model.set_state_dict(paddle.load(args.pretrained_model))
+        model.set_state_dict(state_dict)
+        print("pretrained fastspeech:", args.pretrained_model)
     trainable_model = model
     if world_size > 1:
         model = DataParallel(model)

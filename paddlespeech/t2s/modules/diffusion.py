@@ -233,7 +233,8 @@ class GaussianDiffusion(nn.Layer):
         >>>     def callback(index, timestep, num_timesteps, sample):
         >>>         nonlocal pbar
         >>>         if pbar is None:
-        >>>             pbar = tqdm(total=num_timesteps-index)
+        >>>             pbar = tqdm(total=num_timesteps)
+        >>>             pbar.update(index)
         >>>         pbar.update()
         >>> 
         >>>     return callback
@@ -281,7 +282,7 @@ class GaussianDiffusion(nn.Layer):
         >>>         num_inference_steps=infer_steps,
         >>>         scheduler_type=scheduler_type,
         >>>         callback=create_progress_callback())
-        100%|█████| 25/25 [00:01<00:00, 19.75it/s]
+        100%|█████| 34/34 [00:01<00:00, 19.75it/s]
         >>> 
         >>> # ds=1000, K_step=100, scheduler=pndm, infer_step=50, from aux fs2 mel output
         >>> ds = 1000
@@ -296,7 +297,7 @@ class GaussianDiffusion(nn.Layer):
         >>>         num_inference_steps=infer_steps,
         >>>         scheduler_type=scheduler_type,
         >>>         callback=create_progress_callback())
-        100%|█████| 5/5 [00:00<00:00, 23.80it/s]
+        100%|█████| 14/14 [00:00<00:00, 23.80it/s]
 
     """
 

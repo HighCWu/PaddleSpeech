@@ -549,7 +549,8 @@ class FastSpeech2(nn.Layer):
         elif diffusion_type == 'gaussian_diffusion':
             if self.denoiser is None:
                 raise ValueError(f"{diffusion_type} should have a denoiser.")
-            self.diffusion = GaussianDiffusion(**diffusion_params)
+            self.diffusion = GaussianDiffusion(self.denoiser,
+                                               **diffusion_params)
         else:
             raise ValueError(f"{diffusion_type} is not supported.")
 
@@ -754,7 +755,10 @@ class FastSpeech2(nn.Layer):
         if self.diffusion is not None:
             # use noisy_mels as before_outs
             # use noise as after_outs
-            before_outs, after_outs = self.diffusion(ys, hs)
+            before_outs, after_outs = self.diffusion(
+                ys.transpose([0, 2, 1]), hs.transpose([0, 2, 1]))
+            before_outs = before_outs.transpose([0, 2, 1])
+            after_outs = after_outs.transpose([0, 2, 1])
 
             return before_outs, after_outs, d_outs, p_outs, e_outs, spk_logits
 

@@ -84,7 +84,7 @@ model:
       residual_channels: 256
       gate_channels: 512
       skip_channels: 256
-      aux_channels: 256
+      aux_channels: 384
       dropout: 0.
       bias: True
       use_weight_norm: False
