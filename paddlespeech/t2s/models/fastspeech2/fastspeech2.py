@@ -752,7 +752,7 @@ class FastSpeech2(nn.Layer):
         if return_after_enc:
             return hs, h_masks
 
-        if self.diffusion is not None:
+        if self.diffusion is not None and ys is not None:
             # use noisy_mels as before_outs
             # use noise as after_outs
             before_outs, after_outs = self.diffusion(
@@ -779,6 +779,17 @@ class FastSpeech2(nn.Layer):
         else:
             after_outs = before_outs + self.postnet(
                 before_outs.transpose((0, 2, 1))).transpose((0, 2, 1))
+
+        if self.diffusion is not None:
+            after_outs = after_outs.transpose([0, 2, 1])
+            after_outs = self.diffusion.inference(
+                paddle.randn(after_outs.shape), 
+                hs.transpose([0, 2, 1]), 
+                ref_x=after_outs,
+                num_inference_steps=30,
+                strength=0.1,
+                scheduler_type='pndm')
+            after_outs = after_outs.transpose([0, 2, 1])
 
         return before_outs, after_outs, d_outs, p_outs, e_outs, spk_logits
 

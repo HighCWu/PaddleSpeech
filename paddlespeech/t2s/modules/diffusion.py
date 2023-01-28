@@ -40,7 +40,7 @@ class WaveNetDenoiser(nn.Layer):
         layers (int, optional): 
             Number of residual blocks inside, by default 20
         stacks (int, optional):
-            The number of groups to split the residual blocks into, by default 4
+            The number of groups to split the residual blocks into, by default 5
             Within each group, the dilation of the residual block grows exponentially.
         residual_channels (int, optional): 
             Residual channel of the residual blocks, by default 256
@@ -64,7 +64,7 @@ class WaveNetDenoiser(nn.Layer):
             out_channels: int=80,
             kernel_size: int=3,
             layers: int=20,
-            stacks: int=4,
+            stacks: int=5,
             residual_channels: int=256,
             gate_channels: int=512,
             skip_channels: int=256,
@@ -72,7 +72,7 @@ class WaveNetDenoiser(nn.Layer):
             dropout: float=0.,
             bias: bool=True,
             use_weight_norm: bool=False,
-            init_type: str="kaiming_uniform", ):
+            init_type: str="kaiming_normal", ):
         super().__init__()
 
         # initialize parameters
@@ -200,10 +200,6 @@ class GaussianDiffusion(nn.Layer):
     Args:
         denoiser (Layer, optional): 
             The model used for denoising noises.
-            In fact, the denoiser model performs the operation 
-            of producing a output with more noises from the noisy input. 
-            Then we use the diffusion algorithm to calculate 
-            the input with the output to get the denoised result.
         num_train_timesteps (int, optional): 
             The number of timesteps between the noise and the real during training, by default 1000.
         beta_start (float, optional): 
