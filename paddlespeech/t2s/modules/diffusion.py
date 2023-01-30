@@ -118,18 +118,15 @@ class WaveNetDenoiser(nn.Layer):
                 bias=bias)
             self.conv_layers.append(conv)
 
+        final_conv = nn.Conv1D(skip_channels, out_channels, 1, bias_attr=True)
+        nn.initializer.Constant(0.0)(final_conv.weight)
         self.last_conv_layers = nn.Sequential(nn.ReLU(),
                                               nn.Conv1D(
                                                   skip_channels,
                                                   skip_channels,
                                                   1,
                                                   bias_attr=True),
-                                              nn.ReLU(),
-                                              nn.Conv1D(
-                                                  skip_channels,
-                                                  out_channels,
-                                                  1,
-                                                  bias_attr=True))
+                                              nn.ReLU(), final_conv)
 
         if use_weight_norm:
             self.apply_weight_norm()
