@@ -439,7 +439,7 @@ class GaussianDiffusion(nn.Layer):
                     ref_x, noise, timesteps[:1].tile([noise.shape[0]]))
 
         # denoising loop
-        denoised_output = noisy_input
+        denoised_output = paddle.clip(noisy_input, -1, 1)
         num_warmup_steps = len(
             timesteps) - num_inference_steps * scheduler.order
         for i, t in enumerate(timesteps):
@@ -451,6 +451,7 @@ class GaussianDiffusion(nn.Layer):
             # compute the previous noisy sample x_t -> x_t-1
             denoised_output = scheduler.step(noise_pred, t,
                                              denoised_output).prev_sample
+            denoised_output = paddle.clip(denoised_output, -1, 1)
 
             # call the callback, if provided
             if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and

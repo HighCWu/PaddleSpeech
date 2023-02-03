@@ -783,11 +783,11 @@ class FastSpeech2(nn.Layer):
         if self.diffusion is not None:
             after_outs = after_outs.transpose([0, 2, 1])
             after_outs = self.diffusion.inference(
-                paddle.randn(after_outs.shape), 
-                hs.transpose([0, 2, 1]), 
+                paddle.randn(after_outs.shape),
+                hs.transpose([0, 2, 1]),
                 ref_x=after_outs,
-                num_inference_steps=30,
-                strength=0.1,
+                num_inference_steps=25,
+                strength=None,
                 scheduler_type='pndm')
             after_outs = after_outs.transpose([0, 2, 1])
 

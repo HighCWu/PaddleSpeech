@@ -210,17 +210,17 @@ def parse_args():
     parser.add_argument("--output_dir", type=str, help="output dir.")
     parser.add_argument(
         "--use_durations",
-        type=str,
+        type=bool,
         default=False,
         help="whether use existed durations as an input of acoustic model.")
     parser.add_argument(
         "--use_pitch",
-        type=str,
+        type=bool,
         default=False,
         help="whether use existed pitch as an input of acoustic model.")
     parser.add_argument(
         "--use_energy",
-        type=str,
+        type=bool,
         default=False,
         help="whether use existed energy as an input of acoustic model.")
 
