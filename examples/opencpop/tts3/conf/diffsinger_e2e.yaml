@@ -81,9 +81,9 @@ model:
         kernel_size: 3
         layers: 20
         stacks: 5
-        residual_channels: 256
-        gate_channels: 512
-        skip_channels: 256
+        residual_channels: 384
+        gate_channels: 768
+        skip_channels: 384
         aux_channels: 384
         dropout: 0.
         bias: True
@@ -106,7 +106,7 @@ updater:
     use_masking: True                 # whether to apply masking for padded part in loss calculation
     duration_loss_scale: 0.0          # The scales of duration loss
     pitch_loss_scale: 0.0             # The scales of pitch loss
-    energy_loss_scale: 0.0            # The scales of energy loss
+    energy_loss_scale: 1.0            # The scales of energy loss
 
 
 ###########################################################
@@ -131,4 +131,4 @@ eval_interval_steps: 1000          # Interval steps to evaluate the network.
 ###########################################################
 num_snapshots: 10                 # max number of snapshots to keep while training
 seed: 10086
-train_diffusion_only: True        # skip training encoder and decoder
+train_diffusion_only: False        # not to skip training encoder and decoder
